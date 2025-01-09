@@ -1,0 +1,22 @@
+version = 1
+requires-python = ">=3.11"
+
+[[package]]
+name = "flow-matching-tinygrad"
+version = "0.1.0"
+source = { virtual = "." }
+dependencies = [
+    { name = "tinygrad" },
+]
+
+[package.metadata]
+requires-dist = [{ name = "tinygrad", specifier = ">=0.10.0" }]
+
+[[package]]
+name = "tinygrad"
+version = "0.10.0"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/fe/b1/5555df29138dabe90c1ac225f0e925af007f4a8d48006cc09d5cd94e8638/tinygrad-0.10.0.tar.gz", hash = "sha256:24412219a1467c49892b35e61f283f5992b128539e90743df465af33408e73e7", size = 1148463 }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/f6/ec/b3fc8a55408eb1e03e279963db06e7b2c405b8456f1c9699b64516e36a72/tinygrad-0.10.0-py3-none-any.whl", hash = "sha256:d2c02b67e704ead674ff045b55bb6cd6ee179e0980071f9b5552ea90323c7674", size = 1045775 },
+]
