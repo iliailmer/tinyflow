@@ -1,9 +1,13 @@
 [project]
 name = "flow-matching-tinygrad"
 version = "0.1.0"
-description = "Add your description here"
+description = "Implementing elementary flow matching algorithms in tinygrad"
 readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [
+    "numpy>=2.2.1",
+    "scikit-learn>=1.6.0",
+    "scipy>=1.15.0",
+    "seaborn>=0.13.2",
     "tinygrad>=0.10.0",
 ]
