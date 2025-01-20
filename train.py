@@ -1,12 +1,14 @@
+import matplotlib.animation as animation
 import matplotlib.pyplot as plt
 from sklearn.datasets import make_moons
-from tinygrad.nn.optim import AdamW
+from tinygrad.nn.optim import Adam
 from tinygrad.nn.state import get_parameters
 from tinygrad.tensor import Tensor as T
 from tqdm.auto import tqdm
-
+import numpy as np
 from tinyflow.nn import MLP
 
+plt.style.use("ggplot")
 # we have two distributions:
 # distrubtion q(x) (unknown), that generates data samples (fixed in time)
 # and distribution p(t, x) which is time-dependent and at t=0 is a simple (e.g. 0-1-Gaussian)
@@ -19,7 +21,7 @@ from tinyflow.nn import MLP
 num_iter = 10000
 
 model = MLP(2, 2)
-optim = AdamW(get_parameters(model), lr=0.01)
+optim = Adam(get_parameters(model), lr=0.01)
 T.training = True
 for iter in tqdm(range(num_iter)):
     x = make_moons(256, noise=0.05)[0]
@@ -54,9 +56,15 @@ fig, ax = plt.subplots(1, int(1 / h_step), figsize=(30, 4), sharex=True, sharey=
 time_grid = T.linspace(0, 1, int(1 / h_step))
 
 i = 0
+all_xs = []
+all_ys = []
 for t in time_grid:
-    ax[i].scatter(x.numpy()[:, 0], x.numpy()[:, 1], s=10, c="blue")
+    all_xs.append(x.numpy()[:, 0])
+    all_ys.append(x.numpy()[:, 1])
+    ax[i].scatter(x.numpy()[:, 0], x.numpy()[:, 1], s=10)
     x = model.sample(x, t, h_step)
     i += 1
 plt.tight_layout()
 plt.show()
+
+plt.savefig("moons_flow.png")

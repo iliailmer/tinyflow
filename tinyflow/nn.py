@@ -11,7 +11,6 @@ class MLP:
         self.layer2 = nn.Linear(64, 64)
         self.layer3 = nn.Linear(64, 64)
         self.layer4 = nn.Linear(64, out_dim)
-        self.eps = 1e-10
 
     def __call__(self, x: Tensor, t: Tensor):
         x = x.cat(t, dim=-1)

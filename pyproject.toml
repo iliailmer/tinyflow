@@ -10,4 +10,5 @@ dependencies = [
     "scipy>=1.15.0",
     "seaborn>=0.13.2",
     "tinygrad>=0.10.0",
+    "tqdm>=4.67.1",
 ]
