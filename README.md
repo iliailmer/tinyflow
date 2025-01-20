@@ -1,14 +1,15 @@
 # Flow Matching using `tinygrad`
 
 <!--toc:start-->
+
 - [Flow Matching using `tinygrad`](#flow-matching-using-tinygrad)
   - [Introduction](#introduction)
   - [References](#references)
-<!--toc:end-->
+  <!--toc:end-->
 
 ## Introduction
 
-Briefly, this project is my exploration into flow matching
+This project is my exploration into flow matching
 algorithms using `tinygrad` library instead of traditional
 `pytorch` implementations.
 This is a learning experience for
