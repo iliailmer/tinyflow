@@ -1,11 +1,9 @@
-import matplotlib.animation as animation
 import matplotlib.pyplot as plt
 from sklearn.datasets import make_moons
 from tinygrad.nn.optim import Adam
 from tinygrad.nn.state import get_parameters
 from tinygrad.tensor import Tensor as T
 from tqdm.auto import tqdm
-import numpy as np
 from tinyflow.nn import MLP
 
 plt.style.use("ggplot")
