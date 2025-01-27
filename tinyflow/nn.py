@@ -6,8 +6,14 @@ from tinygrad import nn, tensor
 Tensor = tensor.Tensor
 
 
-class MLP:
+class BaseNeuralNetwork:
+    def __call__(self, x: Tensor, t: Tensor) -> Tensor:
+        return x
+
+
+class MLP(BaseNeuralNetwork):
     def __init__(self, in_dim, out_dim):
+        super().__init__()
         self.layer1 = nn.Linear(in_dim + 1, 64)
         self.layer2 = nn.Linear(64, 64)
         self.layer3 = nn.Linear(64, 64)
@@ -20,7 +26,7 @@ class MLP:
         x = self.layer3(x).elu()  # pyright: ignore
         return self.layer4(x)
 
-    def sample(self, x: Tensor, t: Tensor, h_step):
+    def sample(self, x: Tensor, t: Tensor, h_step) -> Tensor:
         # this is where the ODE is solved
         # d/dt x_t = u_t(x_t|x_1)
         # explicit midpoint method https://en.wikipedia.org/wiki/Midpoint_method
@@ -31,8 +37,9 @@ class MLP:
         return x_t_next
 
 
-class NeuralNetwork:
+class NeuralNetwork(BaseNeuralNetwork):
     def __init__(self, in_dim, out_dim):
+        super().__init__()
         self.layer1 = nn.Linear(in_dim + 1, 64)
         self.layer2 = nn.Linear(64, 64)
         self.layer3 = nn.Linear(64, 64)

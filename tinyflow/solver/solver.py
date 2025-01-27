@@ -3,9 +3,11 @@
 from typing import Callable
 from abc import ABC, abstractmethod
 
+from tinyflow.nn import BaseNeuralNetwork
+
 
 class ODESolver(ABC):
-    def __init__(self, rhs_fn: Callable):
+    def __init__(self, rhs_fn: Callable | BaseNeuralNetwork):
         """
         Base class for ODESolver.
         Args:

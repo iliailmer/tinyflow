@@ -5,18 +5,25 @@ from tinygrad.tensor import Tensor as T
 
 from tinyflow.losses import mse
 from tinyflow.nn import NeuralNetwork
-from tinyflow.solver import RK4, MidpointSolver
+from tinyflow.solver import RK4
 from tinyflow.trainer import MoonsTrainer
+from tinyflow.path import OptimalTransportPath
+
+import argparse
+
+parser = argparse.ArgumentParser()
+
 
 plt.style.use("ggplot")
-num_iter = 10000
+num_iter = 5000
 model = NeuralNetwork(2, 2)
 optim = Adam(get_parameters(model), lr=0.01)
-
+path = OptimalTransportPath(sigma_min=0.2)
 trainer = MoonsTrainer(
     model=model,
     optim=optim,
     loss_fn=mse,
+    path=path,
     num_epochs=num_iter,
     sampling_args=dict(n_samples=256, noise=0.05),
 )

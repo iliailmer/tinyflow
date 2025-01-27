@@ -1,10 +1,11 @@
+from tinyflow.nn import BaseNeuralNetwork
 from tinyflow.solver.solver import ODESolver
 
 from typing import Callable
 
 
 class RK4(ODESolver):
-    def __init__(self, rhs_fn: Callable):
+    def __init__(self, rhs_fn: Callable | BaseNeuralNetwork):
         super().__init__(rhs_fn)
 
     def sample(self, h, t, rhs_prev):
