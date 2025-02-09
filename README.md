@@ -27,7 +27,7 @@ uv run example.py
 
 Time permitting, I plan to add the following implementations:
 
-[ ] more path objects
+[x] more path objects
 [ ] non-euclidean flow matching
 [ ] discrete flow matching
 
