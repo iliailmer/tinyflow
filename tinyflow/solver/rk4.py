@@ -4,13 +4,21 @@ from tinyflow.solver.solver import ODESolver
 from typing import Callable
 
 
+def identitiy(t, rhs_prev):
+    return t
+
+
 class RK4(ODESolver):
-    def __init__(self, rhs_fn: Callable | BaseNeuralNetwork):
+    def __init__(
+        self,
+        rhs_fn: Callable | BaseNeuralNetwork,
+        preprocess_hook: Callable = identitiy,
+    ):
         super().__init__(rhs_fn)
+        self.preprocess_hook = preprocess_hook
 
     def sample(self, h, t, rhs_prev):
-        t = t.reshape((1, 1))
-        t = t.repeat(rhs_prev.shape[0], 1)
+        t = self.preprocess_hook(t, rhs_prev)
         return self.step(h, t, rhs_prev)
 
     def step(self, h, t, rhs_prev):
