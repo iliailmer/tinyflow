@@ -1,7 +1,3 @@
-# TODO: implement sampling with a path object
-# this can also probably return a custom object
-# like Sample with x_0 and x_t as attributes
-
 from abc import ABC
 from typing import Any, Callable
 
@@ -11,6 +7,8 @@ from tinygrad.tensor import Tensor as T
 from tqdm.auto import tqdm
 from tinyflow.nn import BaseNeuralNetwork
 from tinyflow.path import Path
+from tinyflow.utils import cifar10, mnist
+import numpy as np
 
 
 class BaseTrainer(ABC):
@@ -38,15 +36,19 @@ class BaseTrainer(ABC):
             out, dx_t = self.epoch(x)
             self.optim.zero_grad()
             loss = self.loss_fn(out, dx_t)
-            if iter % 50 == 0:
-                pbar.set_description_str(f"Loss: {loss.item()}")
             loss.backward()
+            if iter % 50 == 0:
+                pbar.set_description_str(
+                    f"Loss: {loss.item():.4e}"  # ; grad:{self.model.layer2.weight.grad.numpy().mean():.3e}"
+                )
+
             self.optim.step()
+
         return self.model
 
     def epoch(self, x_1):
         x_1 = T(x_1.astype("float32"))  # pyright: ignore
-        t = T.randn(x_1.shape[0], 1)
+        t = T.rand(x_1.shape[0], 1)
         x_0 = T.randn(*x_1.shape)
         x_t, dx_t = self.path.sample(x_1=x_1, t=t, x_0=x_0)
         out = self.model(x_t, t)
@@ -73,3 +75,54 @@ class MoonsTrainer(BaseTrainer):
 
     def sample_data(self):
         return make_moons(**self.sampling_args)[0]
+
+
+class MNISTTrainer(BaseTrainer):
+    def __init__(
+        self,
+        model,
+        optim,
+        loss_fn,
+        path,
+        num_epochs: int = 10000,
+        sampling_args: dict = {},
+    ):
+        super().__init__(model, optim, loss_fn, path, num_epochs, sampling_args)
+        self.mnist = mnist()
+
+    def sample_data(self) -> Any:
+        sample_size = self.sampling_args.get("n_samples", 100)
+        idx = np.random.randint(self.mnist.shape[0], size=sample_size)
+        return self.mnist[idx] / self.mnist.max()
+
+
+def normalize_minmax(x):
+    return (2 * x / x.max()) - 1  # Scale [0,255] to [-1,1]
+
+
+class CIFARTrainer(BaseTrainer):
+    def __init__(
+        self,
+        model,
+        optim,
+        loss_fn,
+        path,
+        num_epochs: int = 10000,
+        sampling_args: dict = {},
+    ):
+        super().__init__(model, optim, loss_fn, path, num_epochs, sampling_args)
+        self.cifar = cifar10()
+
+    def epoch(self, x_1):
+        x_1 = normalize_minmax(T(x_1.astype("float32"))).reshape((-1, 3, 32, 32))  # pyright: ignore
+        t = T.rand(x_1.shape[0], 1, 1, 1).expand((-1, 1, 32, 32))  # pyright: ignore
+        x_0 = T.randn(*x_1.shape)  # pyright: ignore
+        x_t, dx_t = self.path.sample(x_1=x_1, t=t, x_0=x_0)
+        out = self.model(x_t, t)
+        return out, dx_t
+
+    def sample_data(self) -> Any:
+        sample_size = self.sampling_args.get("n_samples", 100)
+        idx = np.random.randint(self.cifar.shape[0], size=sample_size)
+        x = self.cifar[idx] / self.cifar.max()
+        return x
