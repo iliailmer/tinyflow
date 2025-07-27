@@ -58,7 +58,7 @@ schedulers = dict(
     poly=PolynomialScheduler(args.poly_deg),
 )
 models = dict(
-    mnist=NeuralNetworkMNIST(64, 64),
+    mnist=NeuralNetworkMNIST(28 * 28, 28 * 28),
     moons=NeuralNetwork(2, 2),
     cifar=UNetTinygrad(),
 )
@@ -105,7 +105,7 @@ else:
 
 
 if args.dataset == "mnist":
-    x = T.randn(1, 64)
+    x = T.randn(1, 28 * 28)
     preprocess_time = preprocess_time_mnist
 elif args.dataset == "cifar":
     x = normalize_minmax(T.randn(1, 3, 32, 32))
