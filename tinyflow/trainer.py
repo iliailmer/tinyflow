@@ -1,14 +1,16 @@
 from abc import ABC
 from typing import Any, Callable
 
+import numpy as np
+from loguru import logger
 from sklearn.datasets import make_moons
 from tinygrad.nn.optim import LAMB
 from tinygrad.tensor import Tensor as T
 from tqdm.auto import tqdm
+
 from tinyflow.nn import BaseNeuralNetwork
 from tinyflow.path import Path
 from tinyflow.utils import cifar10, mnist
-import numpy as np
 
 
 class BaseTrainer(ABC):
@@ -28,6 +30,7 @@ class BaseTrainer(ABC):
         self.num_epochs = num_epochs
         self.sampling_args = sampling_args
 
+    @logger.catch
     def train(self):
         pbar = tqdm(range(self.num_epochs))
         T.training = True
@@ -46,11 +49,13 @@ class BaseTrainer(ABC):
 
         return self.model
 
+    @logger.catch
     def epoch(self, x_1):
         x_1 = T(x_1.astype("float32"))  # pyright: ignore
-        t = T.rand(x_1.shape[0], 1)
+        t = T.rand(x_1.shape[0], 1) * 0.99  # clamping
         x_0 = T.randn(*x_1.shape)
         x_t, dx_t = self.path.sample(x_1=x_1, t=t, x_0=x_0)
+        logger.info(f"t mean={t.numpy().mean():.2f}, dx_t std={dx_t.numpy().std():.3f}")
         out = self.model(x_t, t)
         return out, dx_t
 
@@ -93,7 +98,15 @@ class MNISTTrainer(BaseTrainer):
     def sample_data(self) -> Any:
         sample_size = self.sampling_args.get("n_samples", 100)
         idx = np.random.randint(self.mnist.shape[0], size=sample_size)
-        return self.mnist[idx] / self.mnist.max()
+        return normalize_minmax(self.mnist[idx])
+
+    def epoch(self, x_1):
+        x_1 = T(x_1.astype("float32"))
+        t = T.rand(x_1.shape[0], 1)
+        x_0 = T.randn(*x_1.shape)
+        x_t, dx_t = self.path.sample(x_1=x_1, t=t, x_0=x_0)
+        out = self.model(x_t, t)
+        return out, dx_t
 
 
 def normalize_minmax(x):

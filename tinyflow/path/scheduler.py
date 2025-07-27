@@ -83,10 +83,10 @@ class CosineScheduler(BaseScheduler):
         return T.sin((t * 0.5 * math.pi))
 
     def alpha_t_dot(self, t):
-        return -T.cos((t * 0.5 * math.pi)) * 0.5 * math.pi
+        return T.cos((t * 0.5 * math.pi)) * 0.5 * math.pi
 
     def sigma_t(self, t):
         return T.cos((t * 0.5 * math.pi))
 
     def sigma_t_dot(self, t):
-        return T.sin((t * 0.5 * math.pi)) * 0.5 * math.pi
+        return -T.sin((t * 0.5 * math.pi)) * 0.5 * math.pi
