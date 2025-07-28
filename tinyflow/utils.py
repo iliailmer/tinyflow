@@ -1,12 +1,7 @@
-import os
 import pickle
-from glob import glob
 
-import numpy as np
 from loguru import logger
 from matplotlib import pyplot as plt
-from skimage.io import imread
-from sklearn.datasets import load_digits
 from tqdm.auto import tqdm
 
 from tinyflow.nn import Tensor
@@ -54,32 +49,6 @@ def unpickle(file):
     with open(file, "rb") as fo:
         dct = pickle.load(fo, encoding="bytes")
     return dct
-
-
-@logger.catch
-def mnist(path="dataset/mnist/trainset/trainingSet/*/*.jpg"):
-    mnist_files = glob(path)
-    assert len(mnist_files) > 0, mnist_files
-    images = []
-    # idx = np.random.randint(0, len(mnist_files), size=10)
-    for each in tqdm(range(len(mnist_files[:10]))):  # mnist_files):
-        images.append(imread(mnist_files[each]).ravel())
-    return np.array(images)
-    # return load_digits(return_X_y=True)[0]
-
-
-@logger.catch
-def cifar10(path="dataset/cifar10/cifar-10-batches-py/"):
-    files = [os.path.join(path, x) for x in os.listdir(path) if "data_batch_" in x]
-    dataset = []
-    for file in files:
-        dct = unpickle(file)
-        # filenames = dct[b"filenames"]
-        # labels = dct[b"labels"]
-        dataset.append(dct[b"data"])
-
-    # data = np.concatenate(dataset, axis=1)
-    return np.vstack(dataset)
 
 
 @logger.catch

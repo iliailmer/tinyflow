@@ -5,6 +5,7 @@ from tinygrad.nn.optim import Adam
 from tinygrad.nn.state import get_parameters
 from tinygrad.tensor import Tensor as T
 
+from tinyflow.dataloader import MNISTLoader
 from tinyflow.losses import mse
 from tinyflow.nn import (
     NeuralNetwork,
@@ -19,13 +20,13 @@ from tinyflow.path.scheduler import (
     PolynomialScheduler,
 )
 from tinyflow.solver import RK4
-from tinyflow.trainer import CIFARTrainer, MNISTTrainer, MoonsTrainer, normalize_minmax
+from tinyflow.trainer import MNISTTrainer
 from tinyflow.utils import (
     visualize,
-    preprocess_time_cifar,
     preprocess_time_mnist,
-    preprocess_time_moons,
 )
+
+plt.style.use("ggplot")
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--poly-deg", "-n", type=int, default=2, help="Polynomial order")
@@ -42,13 +43,6 @@ parser.add_argument(
 parser.add_argument(
     "--learning-rate", "-lr", type=float, default=0.001, help="Learning Rate"
 )
-parser.add_argument(
-    "--dataset",
-    "-ds",
-    type=str,
-    default="moons",
-    help="Name of dataset, uses sklearn's Moons by default",
-)
 parser.add_argument("--step", type=float, default=0.01, help="Step size in ODE solver")
 args = parser.parse_args()
 schedulers = dict(
@@ -57,65 +51,29 @@ schedulers = dict(
     lvp=LinearVarPresScheduler(),
     poly=PolynomialScheduler(args.poly_deg),
 )
-models = dict(
-    mnist=NeuralNetworkMNIST(28 * 28, 28 * 28),
-    moons=NeuralNetwork(2, 2),
-    cifar=UNetTinygrad(),
-)
-
-plt.style.use("ggplot")
+model = NeuralNetworkMNIST(28 * 28, 28 * 28)
 num_epochs = args.epochs
-model = models[args.dataset]
 optim = Adam(get_parameters(model), lr=args.learning_rate)
 path = AffinePath(scheduler=schedulers[args.scheduler])
-trainers = dict(
-    moons=MoonsTrainer(
-        model=model,
-        optim=optim,
-        loss_fn=mse,
-        path=path,
-        num_epochs=num_epochs,
-        sampling_args=dict(n_samples=256, noise=0.05),
-    ),
-    mnist=MNISTTrainer(
-        model=model,
-        optim=optim,
-        loss_fn=mse,
-        path=path,
-        num_epochs=num_epochs,
-        sampling_args=dict(n_samples=100),
-    ),
-    cifar=CIFARTrainer(
-        model=model,
-        optim=optim,
-        loss_fn=mse,
-        path=path,
-        num_epochs=num_epochs,
-        sampling_args=dict(n_samples=100),
-    ),
-)
-trainer = trainers.get(args.dataset)
-if trainer is not None:
-    model = trainer.train()
-else:
-    raise ValueError(f"Trainer {args.dataset} is unknown")
 
+trainer = MNISTTrainer(
+    model=model,
+    dataloader=MNISTLoader(),
+    optim=optim,
+    loss_fn=mse,
+    path=path,
+    num_epochs=num_epochs,
+)
+
+model = trainer.train()
+trainer.plot_loss("figures/")
 
 # after training, we sample
 
-
-if args.dataset == "mnist":
-    x = T.randn(1, 28 * 28)
-    preprocess_time = preprocess_time_mnist
-elif args.dataset == "cifar":
-    x = normalize_minmax(T.randn(1, 3, 32, 32))
-    preprocess_time = preprocess_time_cifar
-else:
-    x = T.randn(100, 2)
-    preprocess_time = preprocess_time_moons
+x = T.randn(1, 28 * 28)
+preprocess_time = preprocess_time_mnist
 h_step = args.step
 time_grid = T.linspace(0, 1, int(1 / h_step))
-
 
 solver = RK4(model, preprocess_hook=preprocess_time)
 visualize(
