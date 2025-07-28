@@ -1,5 +1,5 @@
 [project]
-name = "flow-matching-tinygrad"
+name = "tinyflow"
 version = "0.1.0"
 description = "Implementing elementary flow matching algorithms in tinygrad"
 readme = "README.md"
@@ -20,3 +20,11 @@ dependencies = [
 venv = "."
 venvPath = ".venv"
 typeCheckingMode = "basic"
+
+[build-system]
+requires = ["setuptools"]
+build-backend = "setuptools.build_meta"
+
+
+[tool.setuptools.packages.find]
+where = ["."]

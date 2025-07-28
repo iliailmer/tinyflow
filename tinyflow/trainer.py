@@ -35,7 +35,7 @@ class BaseTrainer(ABC):
 
     def next_batch(self):
         try:
-            next(self._data_iter)
+            return next(self._data_iter)
         except StopIteration:
             self._data_iter = iter(self.dataloader)
             return next(self._data_iter)
@@ -60,7 +60,6 @@ class BaseTrainer(ABC):
 
         return self.model
 
-    @logger.catch
     def plot_loss(self, prefix: str):
         plt.figure(figsize=(10, 4))
         plt.plot(self._losses)
@@ -72,6 +71,7 @@ class BaseTrainer(ABC):
         plt.savefig(os.path.join(prefix, "loss_curve.png"))
         plt.show()
 
+    @logger.catch
     def epoch(self, x):
         raise NotImplementedError
 
@@ -83,6 +83,7 @@ class BaseTrainer(ABC):
 
 
 class MNISTTrainer(BaseTrainer):
+    @logger.catch
     def epoch(self, batch):
         x_batch, _ = batch
         x = T(x_batch.astype("float32"))

@@ -19,12 +19,12 @@ class RK4(ODESolver):
         super().__init__(rhs_fn)
         self.preprocess_hook = preprocess_hook
 
-    @logger.catch
+    @logger.catch(reraise=True)
     def sample(self, h, t, rhs_prev):
-        t = self.preprocess_hook(t, rhs_prev)
+        # t = self.preprocess_hook(t, rhs_prev)
         return self.step(h, t, rhs_prev)
 
-    @logger.catch
+    @logger.catch(reraise=True)
     def step(self, h, t, rhs_prev):
         t1 = self.preprocess_hook(t, rhs_prev)
         k1 = self.rhs(t=t1, x=rhs_prev)

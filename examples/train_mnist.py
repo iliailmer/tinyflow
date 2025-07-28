@@ -7,11 +7,7 @@ from tinygrad.tensor import Tensor as T
 
 from tinyflow.dataloader import MNISTLoader
 from tinyflow.losses import mse
-from tinyflow.nn import (
-    NeuralNetwork,
-    NeuralNetworkMNIST,
-    UNetTinygrad,
-)
+from tinyflow.nn import NeuralNetworkMNIST
 from tinyflow.path import AffinePath
 from tinyflow.path.scheduler import (
     CosineScheduler,
@@ -22,8 +18,8 @@ from tinyflow.path.scheduler import (
 from tinyflow.solver import RK4
 from tinyflow.trainer import MNISTTrainer
 from tinyflow.utils import (
-    visualize,
     preprocess_time_mnist,
+    visualize_mnist,
 )
 
 plt.style.use("ggplot")
@@ -66,7 +62,7 @@ trainer = MNISTTrainer(
 )
 
 model = trainer.train()
-trainer.plot_loss("figures/")
+trainer.plot_loss("figures/mnist/")
 
 # after training, we sample
 
@@ -76,10 +72,9 @@ h_step = args.step
 time_grid = T.linspace(0, 1, int(1 / h_step))
 
 solver = RK4(model, preprocess_hook=preprocess_time)
-visualize(
+visualize_mnist(
     x,
     solver=solver,
-    dataset=args.dataset,
     time_grid=time_grid,
     h_step=h_step,
     num_plots=10,

@@ -4,6 +4,8 @@ from loguru import logger
 from tinygrad import nn
 from tinygrad.tensor import Tensor
 
+from tinyflow.nn_utils.conv import ConvBlock, ConvTransposeBlock
+
 
 class BaseNeuralNetwork:
     def __call__(self, x: Tensor, t: Tensor) -> Tensor:  # pyright: ignore
@@ -56,10 +58,6 @@ class NeuralNetwork(BaseNeuralNetwork):
         return x
 
 
-def swish(x: Tensor):
-    return x.sigmoid() * x
-
-
 class NeuralNetworkMNIST(BaseNeuralNetwork):
     def __init__(self, in_dim, out_dim):
         super().__init__()
@@ -76,70 +74,6 @@ class NeuralNetworkMNIST(BaseNeuralNetwork):
         x = self.layer3(x).swish()  # pyright: ignore
         x = self.layer4(x)
         return x
-
-
-class NeuralNetworkCIFAR(BaseNeuralNetwork):
-    def __init__(self) -> None:
-        super().__init__()
-        self.layer1 = nn.Conv2d(
-            in_channels=3, out_channels=32, kernel_size=3, stride=2, padding=1
-        )
-        self.layer2 = nn.Conv2d(
-            in_channels=32, out_channels=64, kernel_size=3, stride=2, padding=1
-        )
-        self.layer3 = nn.Conv2d(
-            in_channels=64, out_channels=64, kernel_size=3, stride=2, padding=1
-        )
-        self.layer4 = nn.Conv2d(
-            in_channels=64, out_channels=64, kernel_size=3, stride=2, padding=1
-        )
-        self.classifier = NeuralNetworkMNIST(64, 3072)
-
-    def __call__(self, x: Tensor, t: Tensor) -> Tensor:
-        x = self.layer1(x).layernorm().silu()  # 16x16 # pyright: ignore
-        x = self.layer2(x).layernorm().silu()  # 8x8 # pyright: ignore
-        x = self.layer3(x).layernorm().silu()  # 4x4 # pyright: ignore
-        x = self.layer4(x).layernorm().silu()  # 2x2 # pyright: ignore
-        x = x.avg_pool2d()  # 1x1 # pyright: ignore
-        x = self.classifier(x.flatten(1), t)
-        return x
-
-
-class ConvBlock:
-    """A small reusable block: Conv -> Activation -> Norm"""
-
-    def __init__(self, in_channels, out_channels, kernel_size=3, stride=1, padding=1):
-        self.conv = nn.Conv2d(in_channels, out_channels, kernel_size, stride, padding)
-        self.norm = nn.BatchNorm2d(out_channels)
-
-    def __call__(self, x):
-        return self.norm(self.conv(x)).swish()
-
-
-class ConvTransposeBlock:
-    """A small reusable block: Conv -> Activation -> Norm"""
-
-    def __init__(
-        self,
-        in_channels,
-        out_channels,
-        kernel_size=3,
-        stride=2,
-        padding=1,
-        output_padding=1,
-    ):
-        self.conv = nn.ConvTranspose2d(
-            in_channels,
-            out_channels,
-            kernel_size,
-            stride,
-            padding,
-            output_padding=output_padding,
-        )
-        self.norm = nn.BatchNorm2d(out_channels)
-
-    def __call__(self, x):
-        return self.norm(self.conv(x)).swish()
 
 
 class UNetTinygrad(BaseNeuralNetwork):
@@ -172,9 +106,9 @@ class UNetTinygrad(BaseNeuralNetwork):
         # Encoder
         x = x.cat(t, dim=1)
         e1 = self.enc1(x)  # -1, 32, 32, 32
-        e2 = self.enc2(e1.max_pool2d(2))  # -1, 64, 16, 16
-        e3 = self.enc3(e2.max_pool2d(2))  # -1, 128, 8, 8
-        e4 = self.enc4(e3.max_pool2d(2))  # -1, 256, 4, 4
+        e2 = self.enc2(e1.max_pool2d((2, 2)))  # -1, 64, 16, 16
+        e3 = self.enc3(e2.max_pool2d((2, 2)))  # -1, 128, 8, 8
+        e4 = self.enc4(e3.max_pool2d((2, 2)))  # -1, 128)  # -1, 256, 4, 4
 
         # Bottleneck
         b = self.bottleneck(e4)  # -1, 512, 4, 4

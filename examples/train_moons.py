@@ -22,7 +22,7 @@ from tinyflow.path.scheduler import (
 )
 from tinyflow.solver import RK4
 from tinyflow.utils import (
-    visualize,
+    visualize_moons,
     preprocess_time_moons,
 )
 
@@ -66,6 +66,21 @@ parser.add_argument(
     "--learning-rate", "-lr", type=float, default=0.001, help="Learning Rate"
 )
 parser.add_argument("--step", type=float, default=0.01, help="Step size in ODE solver")
+parser.add_argument(
+    "--noise",
+    "-nz",
+    type=float,
+    default=0.05,
+    help="Variance of noisy points in sample",
+)
+parser.add_argument(
+    "--n-samples",
+    "-n",
+    type=int,
+    default=100,
+    help="Number of moons' dataset points to sample",
+)
+
 args = parser.parse_args()
 schedulers = dict(
     cosine=CosineScheduler(),
@@ -86,7 +101,7 @@ _losses = []
 pbar = tqdm(range(num_epochs))
 T.training = True
 for iter in pbar:
-    x = make_moons()
+    x = make_moons(n_samples=args.n_samples, noise=args.noise)
     out, dx_t = epoch(x)
     optim.zero_grad()
     loss = loss_fn(out, dx_t)
@@ -108,10 +123,9 @@ time_grid = T.linspace(0, 1, int(1 / h_step))
 
 
 solver = RK4(model, preprocess_hook=preprocess_time)
-visualize(
+visualize_moons(
     x,
     solver=solver,
-    dataset=args.dataset,
     time_grid=time_grid,
     h_step=h_step,
     num_plots=10,
