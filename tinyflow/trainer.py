@@ -1,8 +1,7 @@
 import os
 from abc import ABC
-from typing import Any, Callable
+from typing import Any, Callable, Optional
 
-import numpy as np
 from loguru import logger
 from matplotlib import pyplot as plt
 from tinygrad.nn.optim import LAMB
@@ -40,24 +39,13 @@ class BaseTrainer(ABC):
             self._data_iter = iter(self.dataloader)
             return next(self._data_iter)
 
-    @logger.catch
+    @logger.catch(reraise=True)
     def train(self):
         pbar = tqdm(range(self.num_epochs))
         T.training = True
-        for iter in pbar:
-            batch = self.next_batch()
-            out, dx_t = self.epoch(batch)
-            self.optim.zero_grad()
-            loss = self.loss_fn(out, dx_t)
-            loss.backward()
-            self._losses.append(loss.item())
-            if iter % 50 == 0:
-                pbar.set_description_str(
-                    f"Loss: {loss.item():.4e}"  # ; grad:{self.model.layer2.weight.grad.numpy().mean():.3e}"
-                )
-
-            self.optim.step()
-
+        for epoch_idx in pbar:
+            mean_loss = self.epoch(epoch_idx)
+            pbar.set_description(f"Loss: {mean_loss:.4f}")
         return self.model
 
     def plot_loss(self, prefix: str):
@@ -72,7 +60,7 @@ class BaseTrainer(ABC):
         plt.show()
 
     @logger.catch
-    def epoch(self, x):
+    def epoch(self, epoch_idx: Optional[int]):
         raise NotImplementedError
 
     def sample_data(self) -> Any:
@@ -83,12 +71,27 @@ class BaseTrainer(ABC):
 
 
 class MNISTTrainer(BaseTrainer):
-    @logger.catch
-    def epoch(self, batch):
-        x_batch, _ = batch
-        x = T(x_batch.astype("float32"))
-        t = T.rand(x.shape[0], 1) * 0.99
-        x_0 = T.randn(*x.shape)
-        x_t, dx_t = self.path.sample(x_1=x, t=t, x_0=x_0)
-        out = self.model(x_t, t)  # pyright: ignore
-        return out, dx_t
+    @logger.catch(reraise=True)
+    def epoch(self, epoch_idx: Optional[int]):
+        mean_loss_per_epoch = 0.0
+        if epoch_idx is None:
+            desc = ""
+        else:
+            desc = f"Epoch {epoch_idx}"
+        for batch in tqdm(self.dataloader, desc=desc):
+            x_batch, _ = batch
+            x = T(x_batch.astype("float32"))
+            t = T.rand(x.shape[0], 1)
+            x_0 = T.randn(*x.shape)
+            x_t, dx_t = self.path.sample(x_1=x, t=t, x_0=x_0)
+            out = self.model(x_t, t)  # pyright: ignore
+            self.optim.zero_grad()
+            loss = self.loss_fn(out, dx_t)
+            loss.backward()
+            mean_loss_per_epoch += loss.item()
+            self._losses.append(loss.item())
+            self.optim.step()
+        mean_loss_per_epoch = mean_loss_per_epoch / len(self.dataloader)
+        if epoch_idx is not None:
+            logger.info(f"Loss: {mean_loss_per_epoch:.4f}")
+        return mean_loss_per_epoch

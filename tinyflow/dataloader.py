@@ -9,6 +9,9 @@ class BaseDataloader:
     def __init__(self) -> None:
         pass
 
+    def __len__(self) -> int:
+        raise NotImplementedError
+
     def __getitem__(self, idx: int):
         raise NotImplementedError
 
@@ -19,6 +22,7 @@ class MNISTLoader(BaseDataloader):
         path: str = "dataset/mnist/trainset/trainingSet/*/*.jpg",
         batch_size: int = 10,
         shuffle: bool = True,
+        flatten: bool = True,
     ) -> None:
         super().__init__()
         self.path = path
@@ -27,10 +31,11 @@ class MNISTLoader(BaseDataloader):
         self.batch_size = batch_size
         if shuffle:
             np.random.shuffle(self.mnist_files)
+        self.flatten = flatten
         self.index = 0
 
     def __len__(self):
-        return len(self.mnist_files)
+        return len(self.mnist_files) // self.batch_size
 
     def __iter__(self):
         self.index = 0
@@ -46,9 +51,11 @@ class MNISTLoader(BaseDataloader):
 
         for filepath in batch_files:
             img = imread(filepath).astype(np.float32) / 255.0  # normalize
-            images.append(img.ravel())  # flatten
+            if self.flatten:
+                images.append(img.ravel())  # flatten
+            else:
+                images.append(img.reshape((1, img.shape[0], img.shape[1])))
             label = int(os.path.basename(os.path.dirname(filepath)))
             labels.append(label)
 
-        self.index += self.batch_size
-        return np.stack(images), np.array(label)
+        return np.stack(images), np.array(labels)

@@ -7,7 +7,7 @@ from tinygrad.tensor import Tensor as T
 
 from tinyflow.dataloader import MNISTLoader
 from tinyflow.losses import mse
-from tinyflow.nn import NeuralNetworkMNIST
+from tinyflow.nn import NeuralNetworkMNIST, UNetTinygrad
 from tinyflow.path import AffinePath
 from tinyflow.path.scheduler import (
     CosineScheduler,
@@ -47,14 +47,14 @@ schedulers = dict(
     lvp=LinearVarPresScheduler(),
     poly=PolynomialScheduler(args.poly_deg),
 )
-model = NeuralNetworkMNIST(28 * 28, 28 * 28)
+model = UNetTinygrad()  # NeuralNetworkMNIST(28 * 28, 28 * 28)
 num_epochs = args.epochs
 optim = Adam(get_parameters(model), lr=args.learning_rate)
 path = AffinePath(scheduler=schedulers[args.scheduler])
 
 trainer = MNISTTrainer(
     model=model,
-    dataloader=MNISTLoader(),
+    dataloader=MNISTLoader(flatten=False),
     optim=optim,
     loss_fn=mse,
     path=path,
