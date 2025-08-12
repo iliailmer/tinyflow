@@ -1,7 +1,6 @@
 # TODO: https://arxiv.org/pdf/2105.05233 <- this architecture
 """A collection of neural networks"""
 
-from math import log
 from loguru import logger
 from tinygrad import nn
 from tinygrad.tensor import Tensor

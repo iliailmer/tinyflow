@@ -7,7 +7,7 @@ from tinygrad.tensor import Tensor as T
 
 from tinyflow.dataloader import MNISTLoader
 from tinyflow.losses import mse
-from tinyflow.nn import NeuralNetworkMNIST, UNetTinygrad
+from tinyflow.nn import UNetTinygrad
 from tinyflow.path import AffinePath
 from tinyflow.path.scheduler import (
     CosineScheduler,
