@@ -62,11 +62,11 @@ trainer = MNISTTrainer(
 )
 
 model = trainer.train()
-trainer.plot_loss("figures/mnist/")
+# trainer.plot_loss("figures/mnist/")
 
 # after training, we sample
 
-x = T.randn(1, 28 * 28)
+x = T.randn(1, 1, 28, 28)
 preprocess_time = preprocess_time_mnist
 h_step = args.step
 time_grid = T.linspace(0, 1, int(1 / h_step))

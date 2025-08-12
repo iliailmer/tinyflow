@@ -136,4 +136,4 @@ class UNetTinygrad(BaseNeuralNetwork):
         d2 = self.dec2(d3.cat(e2, dim=1))  # -1, 64, 32, 32
         d1 = self.dec1(d2.cat(e1, dim=1))  # -1, 32, 32, 32
 
-        return self.final_layer(d1).sigmoid()  # Ensure output is in [0,1]
+        return self.final_layer(d1).tanh()
