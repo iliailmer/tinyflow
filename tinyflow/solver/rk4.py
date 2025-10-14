@@ -6,7 +6,7 @@ from tinyflow.nn import BaseNeuralNetwork
 from tinyflow.solver.solver import ODESolver
 
 
-def identitiy(t, rhs_prev):
+def identity(t, rhs_prev):
     return t
 
 
@@ -14,7 +14,7 @@ class RK4(ODESolver):
     def __init__(
         self,
         rhs_fn: Callable | BaseNeuralNetwork,
-        preprocess_hook: Callable = identitiy,
+        preprocess_hook: Callable = identity,
     ):
         super().__init__(rhs_fn)
         self.preprocess_hook = preprocess_hook

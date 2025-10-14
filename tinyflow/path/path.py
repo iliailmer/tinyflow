@@ -45,7 +45,6 @@ class AffinePath(Path):
 
 class OptimalTransportPath:
     def __init__(self, sigma_min: float = 0):
-        super().__init__()
         self.sigma_min = sigma_min
 
     def sample(self, x_1, t, x_0):

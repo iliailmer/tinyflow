@@ -45,7 +45,6 @@ def epoch(x_1):
     t = T.rand(x_1.shape[0], 1) * 0.99  # clamping
     x_0 = T.randn(*x_1.shape)
     x_t, dx_t = path.sample(x_1=x_1, t=t, x_0=x_0)
-    logger.info(f"t mean={t.numpy().mean():.2f}, dx_t std={dx_t.numpy().std():.3f}")  # pyright: ignore
     out = model(x_t, t=t)  # pyright: ignore
     return out, dx_t
 
@@ -75,7 +74,7 @@ parser.add_argument(
 )
 parser.add_argument(
     "--n-samples",
-    "-n",
+    "-ns",
     type=int,
     default=100,
     help="Number of moons' dataset points to sample",
@@ -101,7 +100,7 @@ _losses = []
 pbar = tqdm(range(num_epochs))
 T.training = True
 for iter in pbar:
-    x = make_moons(n_samples=args.n_samples, noise=args.noise)
+    x, _ = make_moons(n_samples=args.n_samples, noise=args.noise)
     out, dx_t = epoch(x)
     optim.zero_grad()
     loss = loss_fn(out, dx_t)
