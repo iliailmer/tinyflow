@@ -27,19 +27,6 @@ from tinyflow.utils import (
 )
 
 
-@logger.catch
-def plot(self, prefix: str):
-    plt.figure(figsize=(10, 4))
-    plt.plot(self._losses)
-    plt.xlabel("Iteration")
-    plt.ylabel("Loss")
-    plt.title("Training Loss Over Time")
-    plt.grid(True)
-    plt.tight_layout()
-    plt.savefig(os.path.join(prefix, "loss_curve.png"))
-    plt.show()
-
-
 def epoch(x_1):
     x_1 = T(x_1.astype("float32"))  # pyright: ignore
     t = T.rand(x_1.shape[0], 1) * 0.99  # clamping

@@ -54,6 +54,10 @@ class OptimalTransportPath:
         t: time moment
         x_0: random noise (N(0,1) sample)
         """
-        x_t = x_1 * t + (1 - (1 - self.sigma_min) * t) * x_0
-        dx_t = x_1 - x_0
+        ndim = x_1.ndim
+        assert ndim == x_0.ndim, "x_1 and x_0 dimensions mismatch"
+        # Reshape t to broadcast correctly across all dimensions
+        t_reshaped = t.reshape(*t.shape[:1], *[1] * (ndim - 1))
+        x_t = x_1 * t_reshaped + (1 - (1 - self.sigma_min) * t_reshaped) * x_0
+        dx_t = x_1 - (1 - self.sigma_min) * x_0
         return Sample(x_t, dx_t)

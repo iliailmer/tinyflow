@@ -29,17 +29,6 @@ class MLP(BaseNeuralNetwork):
         x = self.layer3(x).elu()  # pyright: ignore
         return self.layer4(x)
 
-    @logger.catch
-    def sample(self, x: Tensor, t: Tensor, h_step) -> Tensor:
-        # this is where the ODE is solved
-        # d/dt x_t = u_t(x_t|x_1)
-        # explicit midpoint method https://en.wikipedia.org/wiki/Midpoint_method
-        t = t.reshape((1, 1))
-        t = t.repeat(x.shape[0], 1)
-        x_t_next = x + h_step * self(x + h_step / 2 * self(x, t), t + h_step / 2)
-
-        return x_t_next
-
 
 class NeuralNetwork(BaseNeuralNetwork):
     def __init__(self, in_dim, out_dim):
@@ -126,7 +115,7 @@ class UNetTinygrad(BaseNeuralNetwork):
         e1 = self.enc1(x)  # -1, 32, 28, 28
         e2 = self.enc2(e1.max_pool2d((2, 2)))  # -1, 64, 14, 14
         e3 = self.enc3(e2.max_pool2d((2, 2)))  # -1, 128, 7, 7
-        e4 = self.enc4(e3.max_pool2d((2, 2)))  # -1, 128)  # -1, 256, 3, 3
+        e4 = self.enc4(e3.max_pool2d((2, 2)))  # -1, 256, 3, 3
 
         b = self.bottleneck(e4)  # -1, 512, 3, 3
 
@@ -135,4 +124,4 @@ class UNetTinygrad(BaseNeuralNetwork):
         d2 = self.dec2(d3.cat(e2, dim=1))  # -1, 64, 32, 32
         d1 = self.dec1(d2.cat(e1, dim=1))  # -1, 32, 32, 32
 
-        return self.final_layer(d1).tanh()
+        return self.final_layer(d1)

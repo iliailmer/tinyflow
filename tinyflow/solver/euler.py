@@ -8,4 +8,7 @@ class Euler(ODESolver):
         super().__init__(rhs_fn)
 
     def step(self, h, t, rhs_prev):
-        return rhs_prev + h * self.rhs(t=t, x=rhs_prev)
+        return rhs_prev + h * self.rhs(rhs_prev, t)
+
+    def sample(self, h, t, rhs_prev):
+        return self.step(h, t, rhs_prev)

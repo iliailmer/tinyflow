@@ -59,8 +59,9 @@ class PolynomialScheduler(BaseScheduler):
 
 
 class LinearVarPresScheduler(BaseScheduler):
-    def __init__(self):
+    def __init__(self, eps: float = 1e-8):
         super().__init__()
+        self.eps = eps
 
     def alpha_t(self, t):
         return t
@@ -72,7 +73,7 @@ class LinearVarPresScheduler(BaseScheduler):
         return T.sqrt(1 - t**2)
 
     def sigma_t_dot(self, t):
-        return -t / T.sqrt(1 - t**2)
+        return -t / T.sqrt(1 - t**2 + self.eps)
 
 
 class CosineScheduler(BaseScheduler):

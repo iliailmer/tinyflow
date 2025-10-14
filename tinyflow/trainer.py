@@ -81,7 +81,7 @@ class MNISTTrainer(BaseTrainer):
         for batch in tqdm(self.dataloader, desc=desc):
             x_batch, _ = batch
             x = T(x_batch.astype("float32"))
-            t = T.rand(x.shape[0], 1)
+            t = T.rand(x.shape[0], 1) * 0.99  # Clamp to avoid t=1.0 singularities
             x_0 = T.randn(*x.shape)
             x_t, dx_t = self.path.sample(x_1=x, t=t, x_0=x_0)
             out = self.model(x_t, t)  # pyright: ignore

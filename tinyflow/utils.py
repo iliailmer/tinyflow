@@ -31,8 +31,8 @@ def visualize_mnist(x, solver, time_grid, h_step, num_plots=10):
     for idx in tqdm(range(int(time_grid.shape[0]))):
         t = time_grid[idx]
         if (idx + 1) % sample_every == 0:
-            x = (x - x.min()) / (x.max() - x.min())
-            ax[i].imshow(x.numpy()[0, :].reshape((28, 28)), cmap="gray")
+            x_normalized = (x - x.min()) / (x.max() - x.min())
+            ax[i].imshow(x_normalized.numpy()[0, :].reshape((28, 28)), cmap="gray")
             ax[i].axis("off")
             i += 1
         x = solver.sample(h_step, t, x)

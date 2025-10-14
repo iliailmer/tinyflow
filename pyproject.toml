@@ -1,6 +1,6 @@
 [project]
 name = "tinyflow"
-version = "0.1.0"
+version = "0.2.0"
 description = "Implementing elementary flow matching algorithms in tinygrad"
 readme = "README.md"
 requires-python = ">=3.11"
@@ -24,6 +24,9 @@ typeCheckingMode = "basic"
 [build-system]
 requires = ["setuptools"]
 build-backend = "setuptools.build_meta"
+
+[dependency-groups]
+dev = ["pytest>=8.4.2"]
 
 
 [tool.setuptools.packages.find]
