@@ -1,10 +1,11 @@
 import pytest
 from tinygrad.tensor import Tensor as T
+
 from tinyflow.path.scheduler import (
-    LinearScheduler,
-    PolynomialScheduler,
-    LinearVarPresScheduler,
     CosineScheduler,
+    LinearScheduler,
+    LinearVarPresScheduler,
+    PolynomialScheduler,
 )
 
 
@@ -65,10 +66,10 @@ class TestPolynomialScheduler:
         sigma_0 = scheduler.sigma_t(t0).numpy()
         sigma_1 = scheduler.sigma_t(t1).numpy()
 
-        assert abs(alpha_0[0]) < 1e-5, f"alpha(0) should be 0"
-        assert abs(alpha_1[0] - 1.0) < 1e-5, f"alpha(1) should be 1"
-        assert abs(sigma_0[0] - 1.0) < 1e-5, f"sigma(0) should be 1"
-        assert abs(sigma_1[0]) < 1e-5, f"sigma(1) should be 0"
+        assert abs(alpha_0[0]) < 1e-5, "alpha(0) should be 0"
+        assert abs(alpha_1[0] - 1.0) < 1e-5, "alpha(1) should be 1"
+        assert abs(sigma_0[0] - 1.0) < 1e-5, "sigma(0) should be 1"
+        assert abs(sigma_1[0]) < 1e-5, "sigma(1) should be 0"
 
     def test_monotonicity(self):
         """Test that alpha_t increases and sigma_t decreases"""
@@ -99,9 +100,9 @@ class TestLinearVarPresScheduler:
         alpha_1 = scheduler.alpha_t(t1).numpy()
         sigma_0 = scheduler.sigma_t(t0).numpy()
 
-        assert abs(alpha_0[0]) < 1e-5, f"alpha(0) should be 0"
-        assert abs(alpha_1[0] - 0.99) < 1e-4, f"alpha(0.99) should be ~0.99"
-        assert abs(sigma_0[0] - 1.0) < 1e-5, f"sigma(0) should be 1"
+        assert abs(alpha_0[0]) < 1e-5, "alpha(0) should be 0"
+        assert abs(alpha_1[0] - 0.99) < 1e-4, "alpha(0.99) should be ~0.99"
+        assert abs(sigma_0[0] - 1.0) < 1e-5, "sigma(0) should be 1"
 
     def test_no_division_by_zero(self):
         """Test that epsilon prevents division by zero at t=1"""
@@ -146,10 +147,10 @@ class TestCosineScheduler:
         sigma_0 = scheduler.sigma_t(t0).numpy()
         sigma_1 = scheduler.sigma_t(t1).numpy()
 
-        assert abs(alpha_0[0]) < 1e-5, f"alpha(0) should be ~0"
-        assert abs(alpha_1[0] - 1.0) < 1e-4, f"alpha(1) should be ~1"
-        assert abs(sigma_0[0] - 1.0) < 1e-4, f"sigma(0) should be ~1"
-        assert abs(sigma_1[0]) < 1e-4, f"sigma(1) should be ~0"
+        assert abs(alpha_0[0]) < 1e-5, "alpha(0) should be ~0"
+        assert abs(alpha_1[0] - 1.0) < 1e-4, "alpha(1) should be ~1"
+        assert abs(sigma_0[0] - 1.0) < 1e-4, "sigma(0) should be ~1"
+        assert abs(sigma_1[0]) < 1e-4, "sigma(1) should be ~0"
 
     def test_smooth_transition(self):
         """Test that cosine scheduler provides smooth transition"""

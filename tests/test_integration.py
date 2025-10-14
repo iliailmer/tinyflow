@@ -1,14 +1,14 @@
-import pytest
 import numpy as np
-from tinygrad.tensor import Tensor as T
+import pytest
 from tinygrad.nn.optim import Adam
 from tinygrad.nn.state import get_parameters
+from tinygrad.tensor import Tensor as T
 
+from tinyflow.losses import mse
 from tinyflow.nn import NeuralNetwork
 from tinyflow.path import AffinePath, OptimalTransportPath
 from tinyflow.path.scheduler import LinearScheduler
-from tinyflow.losses import mse
-from tinyflow.solver import Euler, RK4
+from tinyflow.solver import RK4, Euler
 from tinyflow.utils import preprocess_time_moons
 
 
@@ -42,8 +42,8 @@ class TestEndToEndTraining:
 
         # Verify
         assert len(losses) == 3, "Should have 3 loss values"
-        assert all(not np.isnan(l) for l in losses), "Loss should not be NaN"
-        assert all(not np.isinf(l) for l in losses), "Loss should not be infinite"
+        assert all(not np.isnan(loss_val) for loss_val in losses), "Loss should not be NaN"
+        assert all(not np.isinf(loss_val) for loss_val in losses), "Loss should not be infinite"
 
     def test_optimal_transport_training(self):
         """Test training with OptimalTransportPath"""
@@ -70,7 +70,7 @@ class TestEndToEndTraining:
             losses.append(loss.item())
 
         assert len(losses) == 3
-        assert all(not np.isnan(l) for l in losses)
+        assert all(not np.isnan(loss_val) for loss_val in losses)
 
     def test_solver_integration_euler(self):
         """Test that Euler solver works with trained model"""
@@ -232,8 +232,12 @@ class TestEndToEndTraining:
             losses.append(loss.item())
 
         # All losses should be finite
-        assert all(not np.isnan(l) for l in losses), "Losses should not be NaN with clamped t"
-        assert all(not np.isinf(l) for l in losses), "Losses should not be infinite with clamped t"
+        assert all(
+            not np.isnan(loss_val) for loss_val in losses
+        ), "Losses should not be NaN with clamped t"
+        assert all(
+            not np.isinf(loss_val) for loss_val in losses
+        ), "Losses should not be infinite with clamped t"
 
 
 if __name__ == "__main__":

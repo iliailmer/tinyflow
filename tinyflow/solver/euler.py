@@ -1,6 +1,6 @@
-from tinyflow.solver.solver import ODESolver
+from collections.abc import Callable
 
-from typing import Callable
+from tinyflow.solver.solver import ODESolver
 
 
 class Euler(ODESolver):

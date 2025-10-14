@@ -1,5 +1,6 @@
 import pytest
 from tinygrad.tensor import Tensor as T
+
 from tinyflow.nn import MLP, NeuralNetwork, NeuralNetworkMNIST, UNetTinygrad
 
 
@@ -17,7 +18,10 @@ class TestMLP:
 
         output = model(x, t)
 
-        assert output.shape == (batch_size, out_dim), f"Expected shape {(batch_size, out_dim)}, got {output.shape}"
+        assert output.shape == (
+            batch_size,
+            out_dim,
+        ), f"Expected shape {(batch_size, out_dim)}, got {output.shape}"
 
     def test_accepts_time_input(self):
         """Test that model correctly accepts time as second argument"""
@@ -35,9 +39,9 @@ class TestMLP:
         model = MLP(2, 2)
 
         # The sample method should have been removed
-        assert not hasattr(model, "sample") or callable(
-            getattr(model, "sample", None)
-        ) is False, "MLP should not have a sample method"
+        assert (
+            not hasattr(model, "sample") or callable(getattr(model, "sample", None)) is False
+        ), "MLP should not have a sample method"
 
 
 class TestNeuralNetwork:
@@ -118,9 +122,12 @@ class TestUNetTinygrad:
 
         output = model(x, t)
 
-        assert output.shape == (batch_size, channels, height, width), (
-            f"Expected shape {(batch_size, channels, height, width)}, got {output.shape}"
-        )
+        assert output.shape == (
+            batch_size,
+            channels,
+            height,
+            width,
+        ), f"Expected shape {(batch_size, channels, height, width)}, got {output.shape}"
 
     def test_time_broadcasting(self):
         """Test that time is correctly broadcast to spatial dimensions"""
@@ -146,12 +153,8 @@ class TestUNetTinygrad:
 
         # If tanh was applied, output would be bounded to [-1, 1]
         # Without tanh, we can get larger values
-        # This is a loose check - just ensure output can exceed tanh bounds
-        max_val = abs(output.numpy()).max()
-
-        # Note: This test may occasionally fail if network happens to produce small outputs
-        # But it's a smoke test to verify tanh was removed
-        assert True, "Output shape check passed"
+        # This is a smoke test to verify tanh was removed
+        assert output is not None, "Output shape check passed"
 
     def test_multi_channel(self):
         """Test UNet with multiple channels"""

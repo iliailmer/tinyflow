@@ -1,5 +1,6 @@
 import pytest
 from tinygrad.tensor import Tensor as T
+
 from tinyflow.path import AffinePath, OptimalTransportPath
 from tinyflow.path.scheduler import LinearScheduler
 

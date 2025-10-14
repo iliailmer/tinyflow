@@ -1,7 +1,7 @@
 # tinygrad based ode solver
 
-from typing import Callable
 from abc import ABC, abstractmethod
+from collections.abc import Callable
 
 from tinyflow.nn import BaseNeuralNetwork
 

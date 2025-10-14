@@ -101,16 +101,12 @@ class UNetTinygrad(BaseNeuralNetwork):
         self.dec4 = ConvTransposeBlock(512 + 256, 256, kernel_size=4)
         self.dec3 = ConvTransposeBlock(256 + 128, 128)
         self.dec2 = ConvTransposeBlock(128 + 64, 64)
-        self.dec1 = ConvTransposeBlock(
-            64 + 32, 32, stride=1, padding=1, output_padding=0
-        )
+        self.dec1 = ConvTransposeBlock(64 + 32, 32, stride=1, padding=1, output_padding=0)
 
         self.final_layer = nn.Conv2d(32, out_channels, kernel_size=1)
 
     def __call__(self, x: Tensor, t: Tensor):
-        t_broadcast = t.reshape(t.shape[0], 1, 1, 1).expand(
-            x.shape[0], 1, x.shape[2], x.shape[3]
-        )
+        t_broadcast = t.reshape(t.shape[0], 1, 1, 1).expand(x.shape[0], 1, x.shape[2], x.shape[3])
         x = x.cat(t_broadcast, dim=1)
         e1 = self.enc1(x)  # -1, 32, 28, 28
         e2 = self.enc2(e1.max_pool2d((2, 2)))  # -1, 64, 14, 14

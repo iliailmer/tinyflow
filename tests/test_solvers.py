@@ -1,6 +1,7 @@
 import pytest
 from tinygrad.tensor import Tensor as T
-from tinyflow.solver import Euler, RK4
+
+from tinyflow.solver import RK4, Euler
 from tinyflow.utils import preprocess_time_moons
 
 
@@ -170,7 +171,9 @@ class TestRK4:
         solver.step(h, t, x)
 
         # RK4 should call hook 4 times (for k1, k2, k3, k4)
-        assert len(hook_calls) == 4, f"Preprocess hook should be called 4 times, got {len(hook_calls)}"
+        assert (
+            len(hook_calls) == 4
+        ), f"Preprocess hook should be called 4 times, got {len(hook_calls)}"
 
     def test_sample_equals_step(self):
         """Test that sample method equals step for RK4"""
@@ -206,7 +209,7 @@ class TestRK4:
 
         result = solver.step(h, t, x)
 
-        assert result.shape == (batch_size, dim), f"Output shape should match input shape"
+        assert result.shape == (batch_size, dim), "Output shape should match input shape"
 
 
 if __name__ == "__main__":

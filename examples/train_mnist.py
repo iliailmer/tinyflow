@@ -26,9 +26,7 @@ plt.style.use("ggplot")
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--poly-deg", "-n", type=int, default=2, help="Polynomial order")
-parser.add_argument(
-    "--scheduler", "-s", type=str, default="linear", help="Scheduler name"
-)
+parser.add_argument("--scheduler", "-s", type=str, default="linear", help="Scheduler name")
 parser.add_argument(
     "--epochs",
     "-e",
@@ -36,9 +34,7 @@ parser.add_argument(
     default=5000,
     help="Number of iterations (epochs) training the velocity model",
 )
-parser.add_argument(
-    "--learning-rate", "-lr", type=float, default=0.001, help="Learning Rate"
-)
+parser.add_argument("--learning-rate", "-lr", type=float, default=0.001, help="Learning Rate")
 parser.add_argument("--step", type=float, default=0.01, help="Step size in ODE solver")
 args = parser.parse_args()
 schedulers = dict(

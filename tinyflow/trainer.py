@@ -1,6 +1,7 @@
 import os
-from abc import ABC
-from typing import Any, Callable, Optional
+from abc import ABC, abstractmethod
+from collections.abc import Callable
+from typing import Any
 
 from loguru import logger
 from matplotlib import pyplot as plt
@@ -59,20 +60,18 @@ class BaseTrainer(ABC):
         plt.savefig(os.path.join(prefix, "loss_curve.png"))
         plt.show()
 
-    @logger.catch
-    def epoch(self, epoch_idx: Optional[int]):
+    @abstractmethod
+    def epoch(self, epoch_idx: int | None):
         raise NotImplementedError
 
-    def sample_data(self) -> Any:
-        pass
-
+    @abstractmethod
     def predict(self, *args, **kwargs) -> Any:
         raise NotImplementedError
 
 
 class MNISTTrainer(BaseTrainer):
     @logger.catch(reraise=True)
-    def epoch(self, epoch_idx: Optional[int]):
+    def epoch(self, epoch_idx: int | None):
         mean_loss_per_epoch = 0.0
         if epoch_idx is None:
             desc = ""

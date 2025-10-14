@@ -1,0 +1,46 @@
+# Pre-commit hooks configuration
+# See https://pre-commit.com for more information
+
+repos:
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.8.4
+    hooks:
+      # Run the linter
+      - id: ruff
+        args: [ --fix ]
+      # Run the formatter
+      - id: ruff-format
+
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v5.0.0
+    hooks:
+      # Prevent giant files from being committed
+      - id: check-added-large-files
+        args: ['--maxkb=1000']
+      # Check for files that would conflict in case-insensitive filesystems
+      - id: check-case-conflict
+      # Check for merge conflicts
+      - id: check-merge-conflict
+      # Check YAML files for syntax errors
+      - id: check-yaml
+      # Check TOML files for syntax errors
+      - id: check-toml
+      # Fix end of files (ensure single newline)
+      - id: end-of-file-fixer
+      # Remove trailing whitespace
+      - id: trailing-whitespace
+      # Prevent committing to main branch directly (optional - uncomment if desired)
+      # - id: no-commit-to-branch
+      #   args: ['--branch', 'main']
+
+  # Optional: Type checking with pyright (can be slow)
+  # Uncomment if you want type checking on every commit
+  # - repo: https://github.com/RobertCraigie/pyright-python
+  #   rev: v1.1.390
+  #   hooks:
+  #     - id: pyright
+  #       additional_dependencies: [
+  #         'tinygrad>=0.10.0',
+  #         'numpy>=2.2.1',
+  #         'loguru>=0.7.3',
+  #       ]

@@ -4,6 +4,7 @@ from tinygrad.nn.optim import Adam
 from tinygrad.nn.state import get_parameters
 from tinygrad.tensor import Tensor as T
 from tqdm.auto import tqdm
+
 from tinyflow.nn import MLP
 
 plt.style.use("ggplot")
