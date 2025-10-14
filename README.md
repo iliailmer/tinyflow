@@ -1,5 +1,12 @@
 # Flow Matching using `tinygrad`
 
+```markdown
+[![Tests](https://github.com/iliailmer/flow_matching_tinygrad/actions/workflows/tests.yml/badge.svg)](https://github.com/iliailmer/flow_matching_tinygrad/actions/workflows/tests.yml)
+[![Lint](https://github.com/iliailmer/flow_matching_tinygrad/actions/workflows/lint.yml/badge.svg)](https://github.com/iliailmer/flow_matching_tinygrad/actions/workflows/lint.yml)
+[![Python 3.11+](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/downloads/)
+[![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
+```
+
 <!--toc:start-->
 
 - [Flow Matching using `tinygrad`](#flow-matching-using-tinygrad)
