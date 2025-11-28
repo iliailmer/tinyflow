@@ -1,0 +1,6 @@
+# @package _global_
+
+scheduler:
+  name: "polynomial"
+  type: "PolynomialScheduler"
+  degree: 2

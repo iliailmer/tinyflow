@@ -1,0 +1,10 @@
+# @package _global_
+
+training:
+  num_epochs: 5000
+  step_size: 0.01  # ODE solver step size
+  n_samples: 100  # Number of samples to generate during evaluation
+  log_interval: 50  # Log metrics every N epochs
+  save_model: true
+  generate_samples: true
+  num_plots: 10  # Number of intermediate plots for visualization

@@ -1,0 +1,25 @@
+# @package _global_
+
+# Moons dataset training for scheduler comparison
+
+defaults:
+  - override /model: neural_network
+  - override /scheduler: linear
+  - override /optimizer: adam
+  - override /dataset: moons
+  - override /training: moons_default
+
+optimizer:
+  lr: 0.001
+
+training:
+  num_epochs: 5000
+  log_interval: 50
+  num_samples: 100
+
+dataset:
+  n_samples: 100
+  noise: 0.05
+
+mlflow:
+  experiment_name: "moons_scheduler_comparison"

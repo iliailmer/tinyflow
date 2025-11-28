@@ -1,0 +1,20 @@
+# @package _global_
+
+# MNIST training with cosine scheduler
+
+defaults:
+  - override /model: unet
+  - override /scheduler: cosine
+  - override /optimizer: adam
+  - override /dataset: mnist
+  - override /training: mnist_default
+
+optimizer:
+  lr: 0.001
+
+training:
+  num_epochs: 5000
+  log_interval: 100
+
+mlflow:
+  experiment_name: "mnist_experiments"

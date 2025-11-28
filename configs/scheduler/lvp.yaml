@@ -1,0 +1,5 @@
+# @package _global_
+
+scheduler:
+  name: "lvp"
+  type: "LinearVarPresScheduler"

@@ -1,0 +1,8 @@
+# @package _global_
+
+model:
+  name: "NeuralNetwork"
+  type: "neural_network"
+  input_dim: 2
+  time_embed_dim: 64
+  output_dim: 2

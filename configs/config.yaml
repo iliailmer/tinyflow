@@ -1,0 +1,22 @@
+# @package _global_
+
+defaults:
+  - model: unet
+  - scheduler: linear
+  - optimizer: adam
+  - dataset: mnist
+  - training: mnist_default
+  - _self_
+
+# MLflow tracking settings
+mlflow:
+  experiment_name: "flow_matching"
+  tracking_uri: "sqlite:///mlflow.db"
+  log_models: true
+  log_artifacts: true
+
+# Random seed for reproducibility
+seed: 42
+
+# Output directory for artifacts
+output_dir: "outputs/${now:%Y-%m-%d}/${now:%H-%M-%S}"
