@@ -9,3 +9,9 @@ wheels/
 # Virtual environments
 .venv
 dataset
+
+mlruns
+outputs
+*.md
+*.db
+!README.md

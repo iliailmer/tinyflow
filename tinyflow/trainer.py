@@ -10,6 +10,7 @@ from tinygrad.tensor import Tensor as T
 from tqdm.auto import tqdm
 
 from tinyflow.dataloader import BaseDataloader
+from tinyflow.logging import MLflowLogger
 from tinyflow.nn import BaseNeuralNetwork
 from tinyflow.path import Path
 
@@ -23,6 +24,8 @@ class BaseTrainer(ABC):
         loss_fn: Callable,
         path: Path,
         num_epochs: int = 10_000,
+        log_interval: int = 50,
+        mlflow_logger: MLflowLogger | None = None,
     ):
         self.model = model
         self.dataloader = dataloader
@@ -31,7 +34,10 @@ class BaseTrainer(ABC):
         self.loss_fn = loss_fn
         self.path = path
         self.num_epochs = num_epochs
+        self.log_interval = log_interval
         self._losses = []
+
+        self.mlflow_logger = mlflow_logger
 
     def next_batch(self):
         try:
@@ -42,23 +48,43 @@ class BaseTrainer(ABC):
 
     @logger.catch(reraise=True)
     def train(self):
-        pbar = tqdm(range(self.num_epochs))
-        T.training = True
-        for epoch_idx in pbar:
-            mean_loss = self.epoch(epoch_idx)
-            pbar.set_description(f"Loss: {mean_loss:.4f}")
+        if self.mlflow_logger:
+            self.mlflow_logger.start_run()
+
+        try:
+            pbar = tqdm(range(self.num_epochs))
+            T.training = True
+            for epoch_idx in pbar:
+                mean_loss = self.epoch(epoch_idx)
+                pbar.set_description(f"Loss: {mean_loss:.4f}")
+
+                if self.mlflow_logger and epoch_idx % self.log_interval == 0:
+                    self.mlflow_logger.log_metric("train/loss", mean_loss, step=epoch_idx)
+                    self.mlflow_logger.log_metric("train/epoch", epoch_idx, step=epoch_idx)
+        finally:
+            if self.mlflow_logger:
+                self.mlflow_logger.end_run()
+
         return self.model
 
-    def plot_loss(self, prefix: str):
-        plt.figure(figsize=(10, 4))
+    def plot_loss(self, prefix: str, log_to_mlflow: bool = True):
+        fig = plt.figure(figsize=(10, 4))
         plt.plot(self._losses)
         plt.xlabel("Iteration")
         plt.ylabel("Loss")
         plt.title("Training Loss Over Time")
         plt.grid(True)
         plt.tight_layout()
-        plt.savefig(os.path.join(prefix, "loss_curve.png"))
+
+        os.makedirs(prefix, exist_ok=True)
+        loss_path = os.path.join(prefix, "loss_curve.png")
+        plt.savefig(loss_path)
+
+        if log_to_mlflow and self.mlflow_logger:
+            self.mlflow_logger.log_figure(fig, "loss_curve.png")
+
         plt.show()
+        plt.close()
 
     @abstractmethod
     def epoch(self, epoch_idx: int | None):

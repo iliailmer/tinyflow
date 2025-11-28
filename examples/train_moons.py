@@ -71,7 +71,7 @@ schedulers = dict(
 
 plt.style.use("ggplot")
 num_epochs = args.epochs
-model = NeuralNetwork(2, 2)
+model = NeuralNetwork(in_dim=2, time_embed_dim=64, out_dim=2)
 optim = Adam(get_parameters(model), lr=args.learning_rate)
 path = AffinePath(scheduler=schedulers[args.scheduler])
 loss_fn = mse

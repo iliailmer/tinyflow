@@ -189,8 +189,8 @@ class TestEndToEndTraining:
 
         T.training = True
 
-        # Get initial weights
-        initial_weight = model.layer1.weight.numpy().copy()
+        # Get initial weights (first layer)
+        initial_weight = model.layer0.weight.numpy().copy()
 
         # Training step
         x_t, dx_t = path.sample(x_1=x_1, t=t, x_0=x_0)
@@ -201,7 +201,7 @@ class TestEndToEndTraining:
         optim.step()
 
         # Check that weights changed
-        final_weight = model.layer1.weight.numpy()
+        final_weight = model.layer0.weight.numpy()
         weight_diff = np.abs(final_weight - initial_weight).max()
 
         assert weight_diff > 1e-6, "Weights should change after training step"

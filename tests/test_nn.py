@@ -1,7 +1,7 @@
 import pytest
 from tinygrad.tensor import Tensor as T
 
-from tinyflow.nn import MLP, NeuralNetwork, NeuralNetworkMNIST, UNetTinygrad
+from tinyflow.nn import MLP, NeuralNetwork, UNetTinygrad
 
 
 class TestMLP:
@@ -74,37 +74,6 @@ class TestNeuralNetwork:
         output = model(x, t)
 
         assert output.shape == (batch_size, out_dim)
-
-
-class TestNeuralNetworkMNIST:
-    def test_output_shape_mnist(self):
-        """Test that NeuralNetworkMNIST returns correct output shape"""
-        in_dim = 28 * 28
-        out_dim = 28 * 28
-        batch_size = 4
-
-        model = NeuralNetworkMNIST(in_dim, out_dim)
-
-        x = T.randn(batch_size, in_dim)
-        t = T.rand(batch_size, 1)
-
-        output = model(x, t)
-
-        assert output.shape == (batch_size, out_dim)
-
-    def test_weight_initialization(self):
-        """Test that Kaiming initialization is applied"""
-        in_dim = 10
-        out_dim = 10
-
-        model = NeuralNetworkMNIST(in_dim, out_dim)
-
-        # Check that weights are not all zeros
-        weight_mean = model.layer1.weight.numpy().mean()
-        weight_std = model.layer1.weight.numpy().std()
-
-        assert abs(weight_mean) < 1.0, "Weight mean should be close to 0"
-        assert weight_std > 0.01, "Weights should have reasonable variance"
 
 
 class TestUNetTinygrad:
@@ -191,7 +160,6 @@ class TestBaseNeuralNetwork:
         models = [
             MLP(2, 2),
             NeuralNetwork(10, 10),
-            NeuralNetworkMNIST(784, 784),
             UNetTinygrad(1, 1),
         ]
 
