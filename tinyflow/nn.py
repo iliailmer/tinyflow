@@ -38,7 +38,7 @@ class MLPNetwork(BaseNeuralNetwork):
 
         self.num_layers = len(hidden_dims) + 1
 
-    def _apply_activation(self, x: Tensor) -> Tensor | None:
+    def _apply_activation(self, x: Tensor) -> Tensor:
         """Apply the configured activation function."""
         if self.activation == "elu":
             return x.elu()
@@ -46,7 +46,8 @@ class MLPNetwork(BaseNeuralNetwork):
             return x.swish()
         if self.activation == "relu":
             return x.relu()
-        raise ValueError(f"Unknown activation: {self.activation}")
+        logger.warning("Unknown activation function, defaulting to Swish")
+        return x.swish()
 
     @logger.catch
     def __call__(self, x: Tensor, t: Tensor) -> Tensor:
@@ -67,7 +68,7 @@ class MLPNetwork(BaseNeuralNetwork):
         # Forward through hidden layers with activation
         for i in range(self.num_layers - 1):
             layer = getattr(self, f"layer{i}")
-            x = self._apply_activation(layer(x))  # pyright: ignore
+            x = self._apply_activation(layer(x))
 
         # Final layer without activation
         final_layer = getattr(self, f"layer{self.num_layers - 1}")
@@ -77,9 +78,10 @@ class MLPNetwork(BaseNeuralNetwork):
 class UNetTinygrad(BaseNeuralNetwork):
     def __init__(self, in_channels: int = 1, out_channels: int = 1):
         super().__init__()
+        self.time_embed = TimeEmbedding(dim=32)
 
         # Encoder: +1 channel for time
-        self.enc1 = ConvBlock(in_channels + 1, 32)
+        self.enc1 = ConvBlock(in_channels + self.time_embed.dim, 32)
         self.enc2 = ConvBlock(32, 64)
         self.enc3 = ConvBlock(64, 128)
         self.enc4 = ConvBlock(128, 256)
@@ -108,8 +110,8 @@ class UNetTinygrad(BaseNeuralNetwork):
             Predicted velocity, shape (batch_size, out_channels, H, W)
         """
         # Broadcast time to spatial dimensions and concatenate with input
-        t_broadcast = t.reshape(t.shape[0], 1, 1, 1).expand(x.shape[0], 1, x.shape[2], x.shape[3])
-        x = x.cat(t_broadcast, dim=1)
+        t_embed = self.time_embed(t)
+        x = x.cat(t_embed.unsqueeze(-1).unsqueeze(-1).expand(-1, -1, x.shape[2], x.shape[3]), dim=1)
 
         # Encoder path
         e1 = self.enc1(x)  # (B, 32, H, W)

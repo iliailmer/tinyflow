@@ -22,7 +22,7 @@ understanding both the flow matching and the library.
 
 ## Running the Code
 
-I highly recommend using [`uv` tool](https://github.com/astral-sh/uv) to run this project.
+I highly recommend using [`uv`](https://github.com/astral-sh/uv) to run this project.
 
 ```python
 uv run example.py

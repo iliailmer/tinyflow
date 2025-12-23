@@ -37,6 +37,7 @@ class MLflowLogger:
     def start_run(self, run_name: str | None = None, tags: dict[str, Any] | None = None):
         """Start a new MLflow run."""
         if self.enabled:
+            mlflow.end_run()
             self._run = mlflow.start_run(run_name=run_name)
             if tags:
                 mlflow.set_tags(tags)

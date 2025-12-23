@@ -13,6 +13,8 @@ from tinyflow.dataloader import BaseDataloader
 from tinyflow.logging import MLflowLogger
 from tinyflow.nn import BaseNeuralNetwork
 from tinyflow.path import Path
+from tinyflow.solver import ODESolver
+from tinyflow.utils import visualize_mnist
 
 
 class BaseTrainer(ABC):
@@ -120,3 +122,21 @@ class MNISTTrainer(BaseTrainer):
         if epoch_idx is not None:
             logger.info(f"Loss: {mean_loss_per_epoch:.4f}")
         return mean_loss_per_epoch
+
+    def predict(self, cfg, solver: ODESolver, mlflow_logger: MLflowLogger):
+        x = T.randn(cfg.training.get("num_samples", 1), 1, 28, 28)
+        h_step = cfg.training.step_size
+        time_grid = T.linspace(0, 1, int(1 / h_step))
+
+        # Generate visualization
+        fig = visualize_mnist(
+            x,
+            solver=solver,
+            time_grid=time_grid,
+            h_step=h_step,
+            num_plots=cfg.training.get("num_plots", 10),
+        )
+
+        # Log the visualization
+        if mlflow_logger.enabled and fig is not None:
+            mlflow_logger.log_figure(fig, "generated_samples.png")

@@ -9,6 +9,7 @@ wheels/
 # Virtual environments
 .venv
 dataset
+!config/dataset/
 
 mlruns
 outputs

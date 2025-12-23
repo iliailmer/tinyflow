@@ -1,0 +1,6 @@
+# @package _global_
+
+dataset:
+  name: "moons"
+  n_samples: 100
+  noise: 0.05
