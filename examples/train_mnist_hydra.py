@@ -10,7 +10,6 @@ from tinygrad.nn.state import get_parameters
 from tinygrad.tensor import Tensor as T
 
 from tinyflow.dataloader import MNISTLoader
-from tinyflow.logging import MLflowLogger
 from tinyflow.losses import mse
 from tinyflow.nn import UNetTinygrad
 from tinyflow.path import AffinePath
@@ -60,13 +59,6 @@ def main(cfg: DictConfig):
     if cfg.get("seed"):
         T.manual_seed(cfg.seed)
 
-    # Initialize MLflow logger
-    mlflow_logger = MLflowLogger(
-        experiment_name=cfg.mlflow.experiment_name,
-        tracking_uri=cfg.mlflow.get("tracking_uri"),
-        enabled=cfg.mlflow.get("log_models", True),
-    )
-
     # Create model, scheduler, and path
     model = create_model(cfg)
     scheduler = create_scheduler(cfg)
@@ -90,40 +82,22 @@ def main(cfg: DictConfig):
         path=path,
         num_epochs=cfg.training.num_epochs,
         log_interval=cfg.training.log_interval,
-        mlflow_logger=mlflow_logger,
     )
 
-    # Log hyperparameters to MLflow
-    if mlflow_logger.enabled:
-        mlflow_logger.start_run(
-            run_name=f"mnist_{cfg.scheduler.name}",
-            tags={
-                "model": cfg.model.name,
-                "scheduler": cfg.scheduler.name,
-                "dataset": cfg.dataset.name,
-            },
-        )
-        mlflow_logger.log_params(OmegaConf.to_container(cfg, resolve=True))
-
     # Train the model
-    try:
-        model = trainer.train()
-        trainer.save_model()
-        # Save loss plot
-        if cfg.training.get("log_artifacts", True):
-            output_dir = cfg.get("output_dir", "outputs")
-            os.makedirs(output_dir, exist_ok=True)
-            trainer.plot_loss(output_dir, log_to_mlflow=True)
+    model = trainer.train()
+    trainer.save_model()
+    # Save loss plot
+    if cfg.training.get("log_artifacts", True):
+        output_dir = cfg.get("output_dir", "outputs")
+        os.makedirs(output_dir, exist_ok=True)
+        trainer.plot_loss(output_dir, log_to_mlflow=True)
 
-        # Generate samples if requested
-        if cfg.training.get("generate_samples", True):
-            solver = RK4(model, preprocess_hook=preprocess_time_mnist)
+    # Generate samples if requested
+    if cfg.training.get("generate_samples", True):
+        solver = RK4(model, preprocess_hook=preprocess_time_mnist)
 
-            trainer.predict(cfg, solver, mlflow_logger)
-
-    finally:
-        if mlflow_logger.enabled:
-            mlflow_logger.end_run()
+        trainer.predict(cfg, solver)
 
 
 if __name__ == "__main__":

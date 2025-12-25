@@ -9,7 +9,6 @@ from tinygrad.nn.state import get_parameters
 from tinygrad.tensor import Tensor as T
 from tqdm.auto import tqdm
 
-from tinyflow.logging import MLflowLogger
 from tinyflow.losses import mse
 from tinyflow.nn import NeuralNetwork
 from tinyflow.path import AffinePath
@@ -73,13 +72,6 @@ def main(cfg: DictConfig):
     if cfg.get("seed"):
         T.manual_seed(cfg.seed)
 
-    # Initialize MLflow logger
-    mlflow_logger = MLflowLogger(
-        experiment_name=cfg.mlflow.experiment_name,
-        tracking_uri=cfg.mlflow.get("tracking_uri"),
-        enabled=cfg.mlflow.get("log_models", True),
-    )
-
     # Create model, scheduler, and path
     model = create_model(cfg)
     scheduler = create_scheduler(cfg)
@@ -90,50 +82,32 @@ def main(cfg: DictConfig):
     loss_fn = mse
     _losses = []
 
-    # Start MLflow run
-    if mlflow_logger.enabled:
-        mlflow_logger.start_run(
-            run_name=f"moons_{cfg.scheduler.name}",
-            tags={
-                "model": cfg.model.name,
-                "scheduler": cfg.scheduler.name,
-                "dataset": cfg.dataset.name,
-            },
+    # Training loop
+    pbar = tqdm(range(cfg.training.num_epochs))
+    T.training = True
+    for iter_idx in pbar:
+        x, _ = make_moons(
+            n_samples=cfg.dataset.n_samples,
+            noise=cfg.dataset.noise,
         )
-        mlflow_logger.log_params(OmegaConf.to_container(cfg, resolve=True))
+        out, dx_t = epoch(x, model, path)
+        optim.zero_grad()
+        loss = loss_fn(out, dx_t)
+        loss.backward()
+        loss_val = loss.item()
+        _losses.append(loss_val)
 
-    try:
-        # Training loop
-        pbar = tqdm(range(cfg.training.num_epochs))
-        T.training = True
-        for iter_idx in pbar:
-            x, _ = make_moons(
-                n_samples=cfg.dataset.n_samples,
-                noise=cfg.dataset.noise,
-            )
-            out, dx_t = epoch(x, model, path)
-            optim.zero_grad()
-            loss = loss_fn(out, dx_t)
-            loss.backward()
-            loss_val = loss.item()
-            _losses.append(loss_val)
+        if iter_idx % cfg.training.log_interval == 0:
+            pbar.set_description_str(f"Loss: {loss_val:.4e}")
 
-            if iter_idx % cfg.training.log_interval == 0:
-                pbar.set_description_str(f"Loss: {loss_val:.4e}")
-
-                # Log to MLflow
-                if mlflow_logger.enabled:
-                    mlflow_logger.log_metric("train/loss", loss_val, step=iter_idx)
-                    mlflow_logger.log_metric("train/iteration", iter_idx, step=iter_idx)
-
-            optim.step()
+        optim.step()
 
         # Plot loss curve
         if cfg.training.get("log_artifacts", True):
             output_dir = cfg.get("output_dir", "outputs")
             os.makedirs(output_dir, exist_ok=True)
 
-            fig = plt.figure(figsize=(10, 4))
+            _ = plt.figure(figsize=(10, 4))
             plt.plot(_losses)
             plt.xlabel("Iteration")
             plt.ylabel("Loss")
@@ -144,9 +118,6 @@ def main(cfg: DictConfig):
             loss_path = os.path.join(output_dir, "loss_curve.png")
             plt.savefig(loss_path)
 
-            if mlflow_logger.enabled:
-                mlflow_logger.log_figure(fig, "loss_curve.png")
-
             plt.close()
 
         # Generate samples
@@ -156,21 +127,13 @@ def main(cfg: DictConfig):
             time_grid = T.linspace(0, 1, int(1 / h_step))
 
             solver = RK4(model, preprocess_hook=preprocess_time_moons)
-            fig = visualize_moons(
+            visualize_moons(
                 x,
                 solver=solver,
                 time_grid=time_grid,
                 h_step=h_step,
                 num_plots=cfg.training.get("num_plots", 10),
             )
-
-            # Log the visualization
-            if mlflow_logger.enabled and fig is not None:
-                mlflow_logger.log_figure(fig, "generated_samples.png")
-
-    finally:
-        if mlflow_logger.enabled:
-            mlflow_logger.end_run()
 
 
 if __name__ == "__main__":

@@ -11,7 +11,6 @@ from tinygrad.tensor import Tensor as T
 from tqdm.auto import tqdm
 
 from tinyflow.dataloader import BaseDataloader
-from tinyflow.logging import MLflowLogger
 from tinyflow.nn import BaseNeuralNetwork
 from tinyflow.path import Path
 from tinyflow.solver import ODESolver
@@ -28,7 +27,6 @@ class BaseTrainer(ABC):
         path: Path,
         num_epochs: int = 10_000,
         log_interval: int = 50,
-        mlflow_logger: MLflowLogger | None = None,
     ):
         self.model = model
         self.dataloader = dataloader
@@ -39,8 +37,6 @@ class BaseTrainer(ABC):
         self.num_epochs = num_epochs
         self.log_interval = log_interval
         self._losses = []
-
-        self.mlflow_logger = mlflow_logger
 
     def next_batch(self):
         try:
@@ -58,27 +54,16 @@ class BaseTrainer(ABC):
 
     @logger.catch(reraise=True)
     def train(self) -> BaseNeuralNetwork:
-        if self.mlflow_logger:
-            self.mlflow_logger.start_run()
-
-        try:
-            pbar = tqdm(range(self.num_epochs))
-            with T.train(True):
-                for epoch_idx in pbar:
-                    mean_loss = self.epoch(epoch_idx)
-                    pbar.set_description(f"Loss: {mean_loss:.4f}")
-
-                    if self.mlflow_logger and epoch_idx % self.log_interval == 0:
-                        self.mlflow_logger.log_metric("train/loss", mean_loss, step=epoch_idx)
-                        self.mlflow_logger.log_metric("train/epoch", epoch_idx, step=epoch_idx)
-        finally:
-            if self.mlflow_logger:
-                self.mlflow_logger.end_run()
+        pbar = tqdm(range(self.num_epochs))
+        with T.train(True):
+            for epoch_idx in pbar:
+                mean_loss = self.epoch(epoch_idx)
+                pbar.set_description(f"Loss: {mean_loss:.4f}")
 
         return self.model
 
     def plot_loss(self, prefix: str, log_to_mlflow: bool = True):
-        fig = plt.figure(figsize=(10, 4))
+        _ = plt.figure(figsize=(10, 4))
         plt.plot(self._losses)
         plt.xlabel("Iteration")
         plt.ylabel("Loss")
@@ -89,9 +74,6 @@ class BaseTrainer(ABC):
         os.makedirs(prefix, exist_ok=True)
         loss_path = os.path.join(prefix, "loss_curve.png")
         plt.savefig(loss_path)
-
-        if log_to_mlflow and self.mlflow_logger:
-            self.mlflow_logger.log_figure(fig, "loss_curve.png")
 
         plt.show()
         plt.close()
@@ -131,21 +113,17 @@ class MNISTTrainer(BaseTrainer):
             logger.info(f"Loss: {mean_loss_per_epoch:.4f}")
         return mean_loss_per_epoch
 
-    def predict(self, cfg, solver: ODESolver, mlflow_logger: MLflowLogger):
+    def predict(self, cfg, solver: ODESolver):
         with T.train(False):
             x = T.randn(cfg.training.get("num_samples", 1), 1, 28, 28)
             h_step = cfg.training.step_size
             time_grid = T.linspace(0, 1, int(1 / h_step))
 
             # Generate visualization
-            fig = visualize_mnist(
+            visualize_mnist(
                 x,
                 solver=solver,
                 time_grid=time_grid,
                 h_step=h_step,
                 num_plots=cfg.training.get("num_plots", 10),
             )
-
-            # Log the visualization
-            if mlflow_logger.enabled and fig is not None:
-                mlflow_logger.log_figure(fig, "generated_samples.png")
