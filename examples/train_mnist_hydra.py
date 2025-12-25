@@ -4,6 +4,7 @@ import os
 
 import hydra
 import matplotlib.pyplot as plt
+import mlflow
 from omegaconf import DictConfig, OmegaConf
 from tinygrad.nn.optim import Adam
 from tinygrad.nn.state import get_parameters
@@ -24,6 +25,9 @@ from tinyflow.trainer import MNISTTrainer
 from tinyflow.utils import preprocess_time_mnist
 
 plt.style.use("ggplot")
+
+mlflow.set_tracking_uri("sqlite:///mlflow.db")
+mlflow.set_experiment("mnist_flow_matching")
 
 
 def create_scheduler(cfg: DictConfig):
@@ -85,7 +89,9 @@ def main(cfg: DictConfig):
     )
 
     # Train the model
-    model = trainer.train()
+    with mlflow.start_run(run_name="mnist"):
+        mlflow.log_params(dict(cfg))
+        model = trainer.train()
     trainer.save_model()
     # Save loss plot
     if cfg.training.get("log_artifacts", True):

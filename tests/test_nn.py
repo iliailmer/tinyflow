@@ -11,7 +11,7 @@ class TestMLP:
         out_dim = 2
         batch_size = 16
 
-        model = MLP(in_dim, out_dim)
+        model = MLP(in_dim, out_dim, 4)
 
         x = T.randn(batch_size, in_dim)
         t = T.rand(batch_size, 1)
@@ -25,7 +25,7 @@ class TestMLP:
 
     def test_accepts_time_input(self):
         """Test that model correctly accepts time as second argument"""
-        model = MLP(2, 2)
+        model = MLP(2, 2, 4)
 
         x = T.randn(10, 2)
         t = T.rand(10, 1)
@@ -36,7 +36,7 @@ class TestMLP:
 
     def test_no_sample_method(self):
         """Test that MLP no longer has sample method (removed in fixes)"""
-        model = MLP(2, 2)
+        model = MLP(2, 2, 4)
 
         # The sample method should have been removed
         assert (
@@ -51,7 +51,7 @@ class TestNeuralNetwork:
         out_dim = 10
         batch_size = 8
 
-        model = NeuralNetwork(in_dim, out_dim)
+        model = NeuralNetwork(in_dim, out_dim, 4)
 
         x = T.randn(batch_size, in_dim)
         t = T.rand(batch_size, 1)
@@ -66,7 +66,7 @@ class TestNeuralNetwork:
         out_dim = 3
         batch_size = 4
 
-        model = NeuralNetwork(in_dim, out_dim)
+        model = NeuralNetwork(in_dim, out_dim, 4)
 
         x = T.randn(batch_size, in_dim)
         t = T.rand(batch_size, 1)
@@ -158,8 +158,8 @@ class TestBaseNeuralNetwork:
     def test_interface(self):
         """Test that all models follow BaseNeuralNetwork interface"""
         models = [
-            MLP(2, 2),
-            NeuralNetwork(10, 10),
+            MLP(2, 2, 4),
+            NeuralNetwork(10, 10, 4),
             UNetTinygrad(1, 1),
         ]
 

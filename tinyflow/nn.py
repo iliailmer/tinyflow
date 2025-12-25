@@ -5,7 +5,7 @@ from tinygrad import nn
 from tinygrad.tensor import Tensor
 
 from tinyflow.nn_utils.conv import ConvBlock, ConvTransposeBlock
-from tinyflow.nn_utils.time_embedding import TimeEmbedding
+from tinyflow.nn_utils.time_embedding import SinusoidalTimeEmbedding, TimeEmbedding
 
 
 class BaseNeuralNetwork:
@@ -78,7 +78,7 @@ class MLPNetwork(BaseNeuralNetwork):
 class UNetTinygrad(BaseNeuralNetwork):
     def __init__(self, in_channels: int = 1, out_channels: int = 1):
         super().__init__()
-        self.time_embed = TimeEmbedding(dim=32)
+        self.time_embed = SinusoidalTimeEmbedding(32)  # TimeEmbedding(dim=32)
 
         # Encoder: +1 channel for time
         self.enc1 = ConvBlock(in_channels + self.time_embed.dim, 32)

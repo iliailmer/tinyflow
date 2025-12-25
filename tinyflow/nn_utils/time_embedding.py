@@ -54,7 +54,6 @@ class SinusoidalTimeEmbedding:
         if dim % 2 != 0:
             raise ValueError(f"Embedding dimension must be even, got {dim}")
         self.dim = dim
-        # TODO: Implement sinusoidal embedding computation
 
     def __call__(self, t: Tensor) -> Tensor:
         """
@@ -69,9 +68,11 @@ class SinusoidalTimeEmbedding:
         if self.dim % 2 != 0:
             logger.error("embedding dimension must be even")
             raise ValueError("embedding dimension must be even")
-        position = Tensor.arange(t.shape[1]).unsqueeze(0)
-        div = Tensor.arange(0, self.dim, 2) / self.dim * (-math.log(10000))
-        embeddings = Tensor.zeros(t.shape[0], self.dim)
-        embeddings[:, 0::2] = Tensor.sin(position * div)
-        embeddings[:, 1::2] = Tensor.cos(position * div)
+        if len(t.shape) > 1:
+            t = t.squeeze(-1)
+        half_dim = self.dim // 2
+        freq = (-math.log(10_000) * Tensor.arange(half_dim) / half_dim).exp()
+        args = t.reshape(-1, 1) * freq.reshape(1, -1)
+        embeddings = Tensor.cat(args.sin(), args.cos(), dim=-1)
+
         return embeddings

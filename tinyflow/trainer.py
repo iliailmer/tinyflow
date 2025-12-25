@@ -3,6 +3,7 @@ from abc import ABC, abstractmethod
 from collections.abc import Callable
 from typing import Any
 
+import mlflow
 from loguru import logger
 from matplotlib import pyplot as plt
 from tinygrad.nn.optim import LAMB
@@ -58,12 +59,13 @@ class BaseTrainer(ABC):
         with T.train(True):
             for epoch_idx in pbar:
                 mean_loss = self.epoch(epoch_idx)
+                mlflow.log_metrics({"loss": mean_loss})
                 pbar.set_description(f"Loss: {mean_loss:.4f}")
 
         return self.model
 
     def plot_loss(self, prefix: str, log_to_mlflow: bool = True):
-        _ = plt.figure(figsize=(10, 4))
+        fig = plt.figure(figsize=(10, 4))
         plt.plot(self._losses)
         plt.xlabel("Iteration")
         plt.ylabel("Loss")
@@ -74,9 +76,7 @@ class BaseTrainer(ABC):
         os.makedirs(prefix, exist_ok=True)
         loss_path = os.path.join(prefix, "loss_curve.png")
         plt.savefig(loss_path)
-
-        plt.show()
-        plt.close()
+        mlflow.log_figure(fig, loss_path)
 
     @abstractmethod
     def epoch(self, epoch_idx: int | None):

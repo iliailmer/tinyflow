@@ -26,7 +26,7 @@ class MNISTLoader(BaseDataloader):
     ) -> None:
         super().__init__()
         self.path = path
-        self.mnist_files = glob(path)[:100]
+        self.mnist_files = glob(path)
         self.shuffle = shuffle
         self.batch_size = batch_size
         if shuffle:

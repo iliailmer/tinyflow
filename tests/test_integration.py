@@ -16,7 +16,7 @@ class TestEndToEndTraining:
     def test_simple_2d_training(self):
         """Test that a simple 2D model can train for a few iterations without errors"""
         # Setup
-        model = NeuralNetwork(2, 2)
+        model = NeuralNetwork(2, 2, time_embed_dim=4)
         path = AffinePath(scheduler=LinearScheduler())
         optim = Adam(get_parameters(model), lr=0.001)
 
@@ -47,7 +47,7 @@ class TestEndToEndTraining:
 
     def test_optimal_transport_training(self):
         """Test training with OptimalTransportPath"""
-        model = NeuralNetwork(2, 2)
+        model = NeuralNetwork(2, 2, time_embed_dim=4)
         path = OptimalTransportPath(sigma_min=0.0)
         optim = Adam(get_parameters(model), lr=0.001)
 
@@ -74,7 +74,7 @@ class TestEndToEndTraining:
 
     def test_solver_integration_euler(self):
         """Test that Euler solver works with trained model"""
-        model = NeuralNetwork(2, 2)
+        model = NeuralNetwork(2, 2, 4)
         path = AffinePath(scheduler=LinearScheduler())
         optim = Adam(get_parameters(model), lr=0.001)
 
@@ -107,7 +107,7 @@ class TestEndToEndTraining:
 
     def test_solver_integration_rk4(self):
         """Test that RK4 solver works with trained model"""
-        model = NeuralNetwork(2, 2)
+        model = NeuralNetwork(2, 2, 4)
         path = AffinePath(scheduler=LinearScheduler())
         optim = Adam(get_parameters(model), lr=0.001)
 
@@ -140,7 +140,7 @@ class TestEndToEndTraining:
 
     def test_multi_step_sampling(self):
         """Test that we can sample multiple steps through time"""
-        model = NeuralNetwork(2, 2)
+        model = NeuralNetwork(2, 2, 4)
         path = AffinePath(scheduler=LinearScheduler())
         optim = Adam(get_parameters(model), lr=0.01)
 
@@ -179,7 +179,7 @@ class TestEndToEndTraining:
 
     def test_gradient_flow(self):
         """Test that gradients flow correctly through the network"""
-        model = NeuralNetwork(2, 2)
+        model = NeuralNetwork(2, 2, 4)
         path = AffinePath(scheduler=LinearScheduler())
         optim = Adam(get_parameters(model), lr=0.001)
 
@@ -208,7 +208,7 @@ class TestEndToEndTraining:
 
     def test_time_clamping_prevents_singularity(self):
         """Test that clamping t prevents singularities in training"""
-        model = NeuralNetwork(2, 2)
+        model = NeuralNetwork(2, 2, 4)
         path = AffinePath(scheduler=LinearScheduler())
         optim = Adam(get_parameters(model), lr=0.001)
 
