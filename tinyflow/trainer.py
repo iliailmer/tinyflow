@@ -6,6 +6,7 @@ from typing import Any
 from loguru import logger
 from matplotlib import pyplot as plt
 from tinygrad.nn.optim import LAMB
+from tinygrad.nn.state import get_state_dict, load_state_dict, safe_load, safe_save
 from tinygrad.tensor import Tensor as T
 from tqdm.auto import tqdm
 
@@ -48,21 +49,28 @@ class BaseTrainer(ABC):
             self._data_iter = iter(self.dataloader)
             return next(self._data_iter)
 
+    def save_model(self, output_path: str = "model.safetensors"):
+        safe_save(get_state_dict(self.model), output_path)
+
+    @staticmethod
+    def load_model(model: BaseNeuralNetwork, model_path: str = "model.safetensors"):
+        return load_state_dict(model, safe_load(model_path))
+
     @logger.catch(reraise=True)
-    def train(self):
+    def train(self) -> BaseNeuralNetwork:
         if self.mlflow_logger:
             self.mlflow_logger.start_run()
 
         try:
             pbar = tqdm(range(self.num_epochs))
-            T.training = True
-            for epoch_idx in pbar:
-                mean_loss = self.epoch(epoch_idx)
-                pbar.set_description(f"Loss: {mean_loss:.4f}")
+            with T.train(True):
+                for epoch_idx in pbar:
+                    mean_loss = self.epoch(epoch_idx)
+                    pbar.set_description(f"Loss: {mean_loss:.4f}")
 
-                if self.mlflow_logger and epoch_idx % self.log_interval == 0:
-                    self.mlflow_logger.log_metric("train/loss", mean_loss, step=epoch_idx)
-                    self.mlflow_logger.log_metric("train/epoch", epoch_idx, step=epoch_idx)
+                    if self.mlflow_logger and epoch_idx % self.log_interval == 0:
+                        self.mlflow_logger.log_metric("train/loss", mean_loss, step=epoch_idx)
+                        self.mlflow_logger.log_metric("train/epoch", epoch_idx, step=epoch_idx)
         finally:
             if self.mlflow_logger:
                 self.mlflow_logger.end_run()
@@ -124,19 +132,20 @@ class MNISTTrainer(BaseTrainer):
         return mean_loss_per_epoch
 
     def predict(self, cfg, solver: ODESolver, mlflow_logger: MLflowLogger):
-        x = T.randn(cfg.training.get("num_samples", 1), 1, 28, 28)
-        h_step = cfg.training.step_size
-        time_grid = T.linspace(0, 1, int(1 / h_step))
+        with T.train(False):
+            x = T.randn(cfg.training.get("num_samples", 1), 1, 28, 28)
+            h_step = cfg.training.step_size
+            time_grid = T.linspace(0, 1, int(1 / h_step))
 
-        # Generate visualization
-        fig = visualize_mnist(
-            x,
-            solver=solver,
-            time_grid=time_grid,
-            h_step=h_step,
-            num_plots=cfg.training.get("num_plots", 10),
-        )
+            # Generate visualization
+            fig = visualize_mnist(
+                x,
+                solver=solver,
+                time_grid=time_grid,
+                h_step=h_step,
+                num_plots=cfg.training.get("num_plots", 10),
+            )
 
-        # Log the visualization
-        if mlflow_logger.enabled and fig is not None:
-            mlflow_logger.log_figure(fig, "generated_samples.png")
+            # Log the visualization
+            if mlflow_logger.enabled and fig is not None:
+                mlflow_logger.log_figure(fig, "generated_samples.png")
