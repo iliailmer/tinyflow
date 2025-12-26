@@ -15,7 +15,7 @@ from tinyflow.dataloader import BaseDataloader
 from tinyflow.nn import BaseNeuralNetwork
 from tinyflow.path import Path
 from tinyflow.solver import ODESolver
-from tinyflow.utils import visualize_mnist
+from tinyflow.utils import visualize_cifar10, visualize_mnist
 
 
 class BaseTrainer(ABC):
@@ -97,7 +97,7 @@ class MNISTTrainer(BaseTrainer):
             desc = f"Epoch {epoch_idx}"
         for batch in tqdm(self.dataloader, desc=desc):
             x_batch, _ = batch
-            x = T(x_batch.astype("float32"))
+            x = T(x_batch)  # Already float32 from dataloader
             t = T.rand(x.shape[0], 1) * 0.99  # Clamp to avoid t=1.0 singularities
             x_0 = T.randn(*x.shape)
             x_t, dx_t = self.path.sample(x_1=x, t=t, x_0=x_0)
@@ -105,8 +105,9 @@ class MNISTTrainer(BaseTrainer):
             self.optim.zero_grad()
             loss = self.loss_fn(out, dx_t)
             loss.backward()
-            mean_loss_per_epoch += loss.item()
-            self._losses.append(loss.item())
+            loss_value = loss.item()  # Single GPU→CPU sync
+            mean_loss_per_epoch += loss_value
+            self._losses.append(loss_value)
             self.optim.step()
         mean_loss_per_epoch = mean_loss_per_epoch / len(self.dataloader)
         if epoch_idx is not None:
@@ -122,6 +123,62 @@ class MNISTTrainer(BaseTrainer):
 
                 # Generate visualization
                 visualize_mnist(
+                    x,
+                    solver=solver,
+                    time_grid=time_grid,
+                    h_step=h_step,
+                    num_plots=cfg.training.get("num_plots", 10),
+                )
+
+
+class CIFAR10Trainer(BaseTrainer):
+    """Trainer for CIFAR-10 dataset."""
+
+    @logger.catch(reraise=True)
+    def epoch(self, epoch_idx: int | None):
+        mean_loss_per_epoch = 0.0
+        desc = f"Epoch {epoch_idx}" if epoch_idx is not None else ""
+
+        for batch in tqdm(self.dataloader, desc=desc, leave=False):
+            x_batch, _ = batch
+            x = T(x_batch)  # Already float32 from dataloader
+
+            # Sample random time and noise
+            t = T.rand(x.shape[0], 1) * 0.99
+            x_0 = T.randn(*x.shape)
+
+            # Flow matching step
+            x_t, dx_t = self.path.sample(x_1=x, t=t, x_0=x_0)
+            out = self.model(x_t, t)
+
+            # Backward pass
+            self.optim.zero_grad()
+            loss = self.loss_fn(out, dx_t)
+            loss.backward()
+
+            # Log and step
+            loss_value = loss.item()
+            mean_loss_per_epoch += loss_value
+            self._losses.append(loss_value)
+            self.optim.step()
+
+        mean_loss_per_epoch = mean_loss_per_epoch / len(self.dataloader)
+        if epoch_idx is not None:
+            logger.info(f"Loss: {mean_loss_per_epoch:.4f}")
+        return mean_loss_per_epoch
+
+    def predict(self, cfg, solver: ODESolver):
+        """Generate CIFAR-10 samples."""
+        with T.no_grad():
+            with T.train(False):
+                # Generate random noise with CIFAR-10 shape (3, 32, 32)
+                num_samples = cfg.training.get("num_samples", 1)
+                x = T.randn(num_samples, 3, 32, 32)
+                h_step = cfg.training.step_size
+                time_grid = T.linspace(0, 1, int(1 / h_step))
+
+                # Generate visualization
+                visualize_cifar10(
                     x,
                     solver=solver,
                     time_grid=time_grid,

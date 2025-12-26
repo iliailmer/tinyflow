@@ -1,0 +1,11 @@
+# @package _global_
+
+training:
+  num_epochs: 100  # CIFAR-10 needs more epochs than MNIST
+  step_size: 0.05  # ODE solver step size (20 steps for inference)
+  n_samples: 4  # Generate multiple samples at once
+  log_interval: 10  # Log every 10 epochs
+  save_model: true
+  generate_samples: true
+  num_plots: 10  # Number of intermediate visualizations
+  log_artifacts: true
