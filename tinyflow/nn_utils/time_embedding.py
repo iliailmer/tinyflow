@@ -73,6 +73,9 @@ class SinusoidalTimeEmbedding:
         half_dim = self.dim // 2
         freq = (-math.log(10_000) * Tensor.arange(half_dim) / half_dim).exp()
         args = t.reshape(-1, 1) * freq.reshape(1, -1)
-        embeddings = Tensor.cat(args.sin(), args.cos(), dim=-1)
+
+        sin_embed = args.sin()
+        cos_embed = args.cos()
+        embeddings = Tensor.stack(sin_embed, cos_embed, dim=2).reshape(-1, self.dim)
 
         return embeddings

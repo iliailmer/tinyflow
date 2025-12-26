@@ -2,7 +2,7 @@
 
 training:
   num_epochs: 3
-  step_size: 0.01  # ODE solver step size
+  step_size: 0.05  # ODE solver step size (20 steps = 5x faster than 0.01)
   n_samples: 1  # Number of samples to generate during evaluation
   log_interval: 1 # Log metrics every N epochs
   save_model: true

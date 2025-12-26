@@ -14,11 +14,13 @@ def visualize_moons(x, solver, time_grid, h_step, num_plots=10):
     sample_every = time_grid.shape[0] // num_plots
     for idx in tqdm(range(int(time_grid.shape[0]))):
         t = time_grid[idx]
+        # Update x first, then visualize
+        x = solver.sample(h_step, t, x)
+
         if (idx + 1) % sample_every == 0:
             ax[i].scatter(x.numpy()[:, 0], x.numpy()[:, 1], s=5)
             ax[i].set_title(f"Time: t={t.numpy():.2f}")
             i += 1
-        x = solver.sample(h_step, t, x)
     plt.tight_layout()
     plt.show()
 
@@ -30,12 +32,15 @@ def visualize_mnist(x, solver, time_grid, h_step, num_plots=10):
     sample_every = time_grid.shape[0] // num_plots
     for idx in tqdm(range(int(time_grid.shape[0]))):
         t = time_grid[idx]
+        # Update x first, then visualize
+        x = solver.sample(h_step, t, x)
+
+        # Only compute normalization when actually visualizing
         if (idx + 1) % sample_every == 0:
             x_normalized = (x - x.min()) / (x.max() - x.min())
             ax[i].imshow(x_normalized.numpy()[0, :].reshape((28, 28)), cmap="gray")
             ax[i].axis("off")
             i += 1
-        x = solver.sample(h_step, t, x)
     plt.tight_layout()
     plt.show()
 

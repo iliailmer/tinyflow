@@ -114,16 +114,17 @@ class MNISTTrainer(BaseTrainer):
         return mean_loss_per_epoch
 
     def predict(self, cfg, solver: ODESolver):
-        with T.train(False):
-            x = T.randn(cfg.training.get("num_samples", 1), 1, 28, 28)
-            h_step = cfg.training.step_size
-            time_grid = T.linspace(0, 1, int(1 / h_step))
+        with T.no_grad():  # Disable gradient computation for faster inference
+            with T.train(False):
+                x = T.randn(cfg.training.get("num_samples", 1), 1, 28, 28)
+                h_step = cfg.training.step_size
+                time_grid = T.linspace(0, 1, int(1 / h_step))
 
-            # Generate visualization
-            visualize_mnist(
-                x,
-                solver=solver,
-                time_grid=time_grid,
-                h_step=h_step,
-                num_plots=cfg.training.get("num_plots", 10),
-            )
+                # Generate visualization
+                visualize_mnist(
+                    x,
+                    solver=solver,
+                    time_grid=time_grid,
+                    h_step=h_step,
+                    num_plots=cfg.training.get("num_plots", 10),
+                )
