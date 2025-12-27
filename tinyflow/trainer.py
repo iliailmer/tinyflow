@@ -171,10 +171,11 @@ class CIFAR10Trainer(BaseTrainer):
             h_step = cfg.training.step_size
             time_grid = T.linspace(0, 1, int(1 / h_step))
 
-            visualize_cifar10(
-                x,
-                solver=solver,
-                time_grid=time_grid,
-                h_step=h_step,
-                num_plots=cfg.training.get("num_plots", 10),
-            )
+                # Generate visualization
+                visualize_cifar10(
+                    x,
+                    solver=solver,
+                    time_grid=time_grid,
+                    h_step=h_step,
+                    num_plots=cfg.training.get("num_plots", 10),
+                )
