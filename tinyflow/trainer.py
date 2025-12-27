@@ -168,19 +168,18 @@ class CIFAR10Trainer(BaseTrainer):
 
     def predict(self, cfg, solver: ODESolver):
         """Generate CIFAR-10 samples."""
-        with T.no_grad():
-            with T.train(False):
-                # Generate random noise with CIFAR-10 shape (3, 32, 32)
-                num_samples = cfg.training.get("num_samples", 1)
-                x = T.randn(num_samples, 3, 32, 32)
-                h_step = cfg.training.step_size
-                time_grid = T.linspace(0, 1, int(1 / h_step))
+        with T.train(False):
+            # Generate random noise with CIFAR-10 shape (3, 32, 32)
+            num_samples = cfg.training.get("num_samples", 1)
+            x = T.randn(num_samples, 3, 32, 32)
+            h_step = cfg.training.step_size
+            time_grid = T.linspace(0, 1, int(1 / h_step))
 
-                # Generate visualization
-                visualize_cifar10(
-                    x,
-                    solver=solver,
-                    time_grid=time_grid,
-                    h_step=h_step,
-                    num_plots=cfg.training.get("num_plots", 10),
-                )
+            # Generate visualization
+            visualize_cifar10(
+                x,
+                solver=solver,
+                time_grid=time_grid,
+                h_step=h_step,
+                num_plots=cfg.training.get("num_plots", 10),
+            )
