@@ -121,6 +121,7 @@ class MNISTTrainer(BaseTrainer):
             h_step = cfg.training.step_size
             time_grid = T.linspace(0, 1, int(1 / h_step))
 
+            # Generate visualization
             visualize_mnist(
                 x,
                 solver=solver,
@@ -128,15 +129,6 @@ class MNISTTrainer(BaseTrainer):
                 h_step=h_step,
                 num_plots=cfg.training.get("num_plots", 10),
             )
-
-
-class FashionMNISTTrainer(MNISTTrainer):
-    """
-    Trainer for Fashion MNIST dataset.
-    Reuses MNISTTrainer since both have the same format (1, 28, 28).
-    """
-
-    pass
 
 
 class CIFAR10Trainer(BaseTrainer):
