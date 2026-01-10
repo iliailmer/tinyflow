@@ -1,9 +1,35 @@
 import os
+import struct
 from glob import glob
 
 import numpy as np
 from skimage.io import imread
 from tqdm import tqdm
+
+
+def read_idx_images(filename):
+    """Read images from MNIST/Fashion MNIST idx3-ubyte format."""
+    with open(filename, "rb") as f:
+        # Read header
+        magic, num_images, rows, cols = struct.unpack(">IIII", f.read(16))
+        assert magic == 2051, f"Invalid magic number: {magic}"
+
+        # Read all images
+        images = np.frombuffer(f.read(), dtype=np.uint8)
+        images = images.reshape(num_images, rows, cols)
+        return images
+
+
+def read_idx_labels(filename):
+    """Read labels from MNIST/Fashion MNIST idx1-ubyte format."""
+    with open(filename, "rb") as f:
+        # Read header
+        magic, num_labels = struct.unpack(">II", f.read(8))
+        assert magic == 2049, f"Invalid magic number: {magic}"
+
+        # Read all labels
+        labels = np.frombuffer(f.read(), dtype=np.uint8)
+        return labels
 
 
 class BaseDataloader:
@@ -60,6 +86,75 @@ class MNISTLoader(BaseDataloader):
             labels.append(label)
 
         return np.stack(images), np.array(labels)
+
+
+class FashionMNISTLoader(BaseDataloader):
+    """
+    Fashion MNIST dataloader for idx-ubyte format.
+    Fashion MNIST contains 10 classes: T-shirt/top, Trouser, Pullover, Dress, Coat,
+    Sandal, Shirt, Sneaker, Bag, Ankle boot.
+    """
+
+    def __init__(
+        self,
+        path: str = "dataset/fashion_mnist",
+        batch_size: int = 32,
+        shuffle: bool = True,
+        flatten: bool = False,
+        train: bool = True,
+    ) -> None:
+        super().__init__()
+        self.path = path
+        self.batch_size = batch_size
+        self.shuffle = shuffle
+        self.flatten = flatten
+        self.train = train
+        self.index = 0
+
+        # Load images and labels from idx-ubyte format
+        if train:
+            images_file = os.path.join(path, "train-images-idx3-ubyte")
+            labels_file = os.path.join(path, "train-labels-idx1-ubyte")
+        else:
+            images_file = os.path.join(path, "t10k-images-idx3-ubyte")
+            labels_file = os.path.join(path, "t10k-labels-idx1-ubyte")
+
+        print(f"Loading Fashion MNIST from {images_file}...")
+        self.images = read_idx_images(images_file).astype(np.float32) / 255.0
+        self.labels = read_idx_labels(labels_file)
+
+        # Reshape if not flattening
+        if not flatten:
+            self.images = self.images.reshape(-1, 1, 28, 28)
+        else:
+            self.images = self.images.reshape(-1, 28 * 28)
+
+        # Shuffle if requested
+        if shuffle:
+            indices = np.random.permutation(len(self.images))
+            self.images = self.images[indices]
+            self.labels = self.labels[indices]
+
+    def __len__(self):
+        return len(self.images) // self.batch_size
+
+    def __iter__(self):
+        self.index = 0
+        if self.shuffle:
+            indices = np.random.permutation(len(self.images))
+            self.images = self.images[indices]
+            self.labels = self.labels[indices]
+        return self
+
+    def __next__(self):
+        if self.index >= len(self.images):
+            raise StopIteration
+
+        batch_images = self.images[self.index : self.index + self.batch_size]
+        batch_labels = self.labels[self.index : self.index + self.batch_size]
+        self.index += self.batch_size
+
+        return batch_images, batch_labels
 
 
 class CIFAR10Loader(BaseDataloader):

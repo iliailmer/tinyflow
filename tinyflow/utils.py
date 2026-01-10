@@ -9,38 +9,68 @@ from tinyflow.nn import Tensor
 
 @logger.catch
 def visualize_moons(x, solver, time_grid, h_step, num_plots=10):
-    i = 0
+    """Optimized moons visualization with minimal tensor realizations."""
     _, ax = plt.subplots(1, num_plots, figsize=(30, 4), sharex=True, sharey=True)
     sample_every = time_grid.shape[0] // num_plots
-    for idx in tqdm(range(int(time_grid.shape[0]))):
+
+    # Store snapshots to visualize (avoid premature .numpy() calls)
+    snapshots = []
+    snapshot_times = []
+
+    # Generate all samples first (stay on GPU)
+    for idx in tqdm(range(int(time_grid.shape[0])), desc="Generating samples"):
         t = time_grid[idx]
-        # Update x first, then visualize
         x = solver.sample(h_step, t, x)
 
+        # Store reference for visualization (still on GPU)
         if (idx + 1) % sample_every == 0:
-            ax[i].scatter(x.numpy()[:, 0], x.numpy()[:, 1], s=5)
-            ax[i].set_title(f"Time: t={t.numpy():.2f}")
-            i += 1
+            snapshots.append(x)
+            snapshot_times.append(t)
+
+    # Now visualize all snapshots (single GPU->CPU transfer per snapshot)
+    for i, (snapshot, t) in enumerate(zip(snapshots, snapshot_times, strict=False)):
+        x_np = snapshot.numpy()
+        ax[i].scatter(x_np[:, 0], x_np[:, 1], s=20, alpha=0.6)  # Larger points, add transparency
+        ax[i].set_title(f"t={t.numpy():.2f}")
+        ax[i].set_xlim(-3, 3)  # Set consistent limits
+        ax[i].set_ylim(-3, 3)
+        ax[i].grid(True, alpha=0.3)
+
     plt.tight_layout()
+    plt.savefig("moons_generation.png", dpi=150, bbox_inches="tight")
+    print("✓ Saved moons_generation.png")
     plt.show()
 
 
 @logger.catch
 def visualize_mnist(x, solver, time_grid, h_step, num_plots=10):
-    i = 0
+    """Optimized MNIST visualization with minimal tensor realizations."""
     _, ax = plt.subplots(1, num_plots, figsize=(30, 4), sharex=True, sharey=True)
     sample_every = time_grid.shape[0] // num_plots
-    for idx in tqdm(range(int(time_grid.shape[0]))):
+
+    # Store snapshots to visualize (avoid premature .numpy() calls)
+    snapshots = []
+    snapshot_times = []
+
+    # Generate all samples first (stay on GPU)
+    for idx in tqdm(range(int(time_grid.shape[0])), desc="Generating samples"):
         t = time_grid[idx]
-        # Update x first, then visualize
         x = solver.sample(h_step, t, x)
 
-        # Only compute normalization when actually visualizing
+        # Store reference for visualization (still on GPU)
         if (idx + 1) % sample_every == 0:
-            x_normalized = (x - x.min()) / (x.max() - x.min())
-            ax[i].imshow(x_normalized.numpy()[0, :].reshape((28, 28)), cmap="gray")
-            ax[i].axis("off")
-            i += 1
+            snapshots.append(x)
+            snapshot_times.append(t)
+
+    # Now visualize all snapshots (single GPU->CPU transfer per snapshot)
+    for i, (snapshot, t) in enumerate(zip(snapshots, snapshot_times, strict=False)):
+        # Single realization per snapshot
+        x_np = snapshot.numpy()[0, :].reshape((28, 28))
+        x_normalized = (x_np - x_np.min()) / (x_np.max() - x_np.min() + 1e-8)
+        ax[i].imshow(x_normalized, cmap="gray")
+        ax[i].axis("off")
+        ax[i].set_title(f"t={t.numpy():.2f}")
+
     plt.tight_layout()
     plt.show()
 
@@ -69,7 +99,7 @@ def preprocess_time_cifar(t: Tensor, rhs_prev: Tensor):
 @logger.catch
 def visualize_cifar10(x, solver, time_grid, h_step, num_plots=10):
     """
-    Visualize CIFAR-10 generation process.
+    Optimized CIFAR-10 visualization with minimal tensor realizations.
 
     Args:
         x: Initial noise tensor of shape (batch_size, 3, 32, 32)
@@ -80,28 +110,35 @@ def visualize_cifar10(x, solver, time_grid, h_step, num_plots=10):
     """
     import numpy as np
 
-    i = 0
     _, ax = plt.subplots(1, num_plots, figsize=(30, 4), sharex=True, sharey=True)
     sample_every = time_grid.shape[0] // num_plots
 
-    for idx in tqdm(range(int(time_grid.shape[0]))):
+    # Store snapshots to visualize (avoid premature .numpy() calls)
+    snapshots = []
+    snapshot_times = []
+
+    # Generate all samples first (stay on GPU)
+    for idx in tqdm(range(int(time_grid.shape[0])), desc="Generating samples"):
         t = time_grid[idx]
-        # Update x first
         x = solver.sample(h_step, t, x)
 
-        # Visualize at intervals
+        # Store reference for visualization (still on GPU)
         if (idx + 1) % sample_every == 0:
-            # Convert from (batch, C, H, W) to (H, W, C) for plotting
-            img = x.numpy()[0, :].transpose(1, 2, 0)  # (3, 32, 32) -> (32, 32, 3)
+            snapshots.append(x)
+            snapshot_times.append(t)
 
-            # Normalize to [0, 1] for display
-            img_normalized = (img - img.min()) / (img.max() - img.min() + 1e-8)
-            img_normalized = np.clip(img_normalized, 0, 1)
+    # Now visualize all snapshots (single GPU->CPU transfer per snapshot)
+    for i, (snapshot, t) in enumerate(zip(snapshots, snapshot_times, strict=False)):
+        # Single realization per snapshot: (batch, C, H, W) -> (H, W, C)
+        img = snapshot.numpy()[0, :].transpose(1, 2, 0)  # (3, 32, 32) -> (32, 32, 3)
 
-            ax[i].imshow(img_normalized)
-            ax[i].axis("off")
-            ax[i].set_title(f"t={t.numpy():.2f}")
-            i += 1
+        # Normalize to [0, 1] for display
+        img_normalized = (img - img.min()) / (img.max() - img.min() + 1e-8)
+        img_normalized = np.clip(img_normalized, 0, 1)
+
+        ax[i].imshow(img_normalized)
+        ax[i].axis("off")
+        ax[i].set_title(f"t={t.numpy():.2f}")
 
     plt.tight_layout()
     plt.savefig("outputs/cifar10_generation.png", dpi=150, bbox_inches="tight")

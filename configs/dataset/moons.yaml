@@ -2,5 +2,5 @@
 
 dataset:
   name: "moons"
-  n_samples: 100
-  noise: 0.05
+  n_samples: 500
+  noise: 0.01

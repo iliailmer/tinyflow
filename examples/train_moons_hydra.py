@@ -52,6 +52,15 @@ def create_model(cfg: DictConfig):
         raise ValueError(f"Unknown model type: {model_type}")
 
 
+def generate_model_name(cfg: DictConfig) -> str:
+    """Generate model name from config."""
+    dataset = cfg.dataset.name
+    model_type = cfg.model.type
+    scheduler = cfg.scheduler.type.replace("Scheduler", "").lower()
+    name = f"model_{dataset}_{model_type}_{scheduler}.safetensors"
+    return name
+
+
 def epoch(x_1, model, path):
     """Single training epoch."""
     x_1 = T(x_1.astype("float32"))  # pyright: ignore
@@ -71,6 +80,10 @@ def main(cfg: DictConfig):
     # Set random seed if specified
     if cfg.get("seed"):
         T.manual_seed(cfg.seed)
+
+    # Generate model name (can be overridden with model_name parameter)
+    model_name = cfg.get("model_name", generate_model_name(cfg))
+    print(f"\nModel will be saved as: {model_name}")
 
     # Create model, scheduler, and path
     model = create_model(cfg)
@@ -102,38 +115,45 @@ def main(cfg: DictConfig):
 
         optim.step()
 
-        # Plot loss curve
-        if cfg.training.get("log_artifacts", True):
-            output_dir = cfg.get("output_dir", "outputs")
-            os.makedirs(output_dir, exist_ok=True)
+    # Save model after training
+    if cfg.training.get("save_model", True):
+        from tinygrad.nn.state import get_state_dict, safe_save
 
-            _ = plt.figure(figsize=(10, 4))
-            plt.plot(_losses)
-            plt.xlabel("Iteration")
-            plt.ylabel("Loss")
-            plt.title("Training Loss Over Time")
-            plt.grid(True)
-            plt.tight_layout()
+        safe_save(get_state_dict(model), model_name)
+        print(f"✓ Model saved to: {model_name}")
 
-            loss_path = os.path.join(output_dir, "loss_curve.png")
-            plt.savefig(loss_path)
+    # Plot loss curve after training
+    if cfg.training.get("log_artifacts", True):
+        output_dir = cfg.get("output_dir", "outputs")
+        os.makedirs(output_dir, exist_ok=True)
 
-            plt.close()
+        _ = plt.figure(figsize=(10, 4))
+        plt.plot(_losses)
+        plt.xlabel("Iteration")
+        plt.ylabel("Loss")
+        plt.title("Training Loss Over Time")
+        plt.grid(True)
+        plt.tight_layout()
 
-        # Generate samples
-        if cfg.training.get("generate_samples", True):
-            x = T.randn(cfg.training.num_samples, 2)
-            h_step = cfg.training.step_size
-            time_grid = T.linspace(0, 1, int(1 / h_step))
+        loss_path = os.path.join(output_dir, "loss_curve.png")
+        plt.savefig(loss_path)
+        plt.close()
 
-            solver = RK4(model, preprocess_hook=preprocess_time_moons)
-            visualize_moons(
-                x,
-                solver=solver,
-                time_grid=time_grid,
-                h_step=h_step,
-                num_plots=cfg.training.get("num_plots", 10),
-            )
+    # Generate samples after training
+    if cfg.training.get("generate_samples", True):
+        num_samples = cfg.training.get("n_samples", 100)
+        x = T.randn(num_samples, 2)
+        h_step = cfg.training.step_size
+        time_grid = T.linspace(0, 1, int(1 / h_step))
+
+        solver = RK4(model, preprocess_hook=preprocess_time_moons)
+        visualize_moons(
+            x,
+            solver=solver,
+            time_grid=time_grid,
+            h_step=h_step,
+            num_plots=cfg.training.get("num_plots", 10),
+        )
 
 
 if __name__ == "__main__":

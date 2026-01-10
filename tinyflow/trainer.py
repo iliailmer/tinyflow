@@ -48,6 +48,7 @@ class BaseTrainer(ABC):
 
     def save_model(self, output_path: str = "model.safetensors"):
         safe_save(get_state_dict(self.model), output_path)
+        print(f"✓ Model saved to: {output_path}")
 
     @staticmethod
     def load_model(model: BaseNeuralNetwork, model_path: str = "model.safetensors"):
@@ -128,6 +129,15 @@ class MNISTTrainer(BaseTrainer):
                 h_step=h_step,
                 num_plots=cfg.training.get("num_plots", 10),
             )
+
+
+class FashionMNISTTrainer(MNISTTrainer):
+    """
+    Trainer for Fashion MNIST dataset.
+    Reuses MNISTTrainer since both have the same format (1, 28, 28).
+    """
+
+    pass
 
 
 class CIFAR10Trainer(BaseTrainer):
