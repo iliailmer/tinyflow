@@ -24,9 +24,44 @@ understanding both the flow matching and the library.
 
 I highly recommend using [`uv`](https://github.com/astral-sh/uv) to run this project.
 
-```python
-uv run example.py
+### Training Models
+
+```bash
+# Install dependencies
+uv sync
+
+# Train on moons dataset
+uv run examples/train_moons_hydra.py
+
+# Train on MNIST
+uv run examples/train_mnist_hydra.py
+
+# Train on Fashion MNIST
+uv run examples/train_mnist_hydra.py dataset=fashion_mnist
+
+# Train on CIFAR-10
+uv run examples/train_mnist_hydra.py dataset=cifar10
 ```
+
+### Generating Samples
+
+After training, generate samples from your trained models:
+
+```bash
+# Generate MNIST samples (static grid)
+uv run examples/generate_images.py generation.model_path=model_mnist_unet_linear.safetensors
+
+# Generate animated GIF
+uv run examples/generate_images.py generation.model_path=model_mnist_unet_linear.safetensors --animated
+
+# Generate moons samples
+uv run examples/generate_moons.py generation.model_path=model_moons_neural_network_linear.safetensors
+
+# Generate animated moons
+uv run examples/generate_moons.py generation.model_path=model_moons_neural_network_linear.safetensors --animated
+```
+
+Generated outputs are saved in `outputs/generated/` directory.
 
 ## To-Do
 

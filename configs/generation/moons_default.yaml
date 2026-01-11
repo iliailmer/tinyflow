@@ -1,0 +1,22 @@
+# @package _global_
+
+generation:
+  # Model to load
+  model_path: "model.safetensors"
+
+  # Generation settings
+  n_samples: 100  # Number of samples to generate
+  num_steps: 100  # Number of ODE steps for generation
+  step_size: 0.01  # ODE solver step size
+  seed: 42  # Random seed
+  animated: false  # Set to true to generate animation (or use --animated flag)
+
+  # Visualization settings
+  num_plots: 10  # Number of intermediate plots for visualization
+
+  # Animation settings (only used if animated is true)
+  fps: 10  # Frames per second for animation
+
+  # Output settings
+  output_dir: "outputs/generated"
+  show_plot: false  # Set to true to display plot after generation

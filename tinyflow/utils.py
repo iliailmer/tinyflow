@@ -13,21 +13,17 @@ def visualize_moons(x, solver, time_grid, h_step, num_plots=10):
     _, ax = plt.subplots(1, num_plots, figsize=(30, 4), sharex=True, sharey=True)
     sample_every = time_grid.shape[0] // num_plots
 
-    # Store snapshots to visualize (avoid premature .numpy() calls)
     snapshots = []
     snapshot_times = []
 
-    # Generate all samples first (stay on GPU)
     for idx in tqdm(range(int(time_grid.shape[0])), desc="Generating samples"):
         t = time_grid[idx]
         x = solver.sample(h_step, t, x)
 
-        # Store reference for visualization (still on GPU)
         if (idx + 1) % sample_every == 0:
             snapshots.append(x)
             snapshot_times.append(t)
 
-    # Now visualize all snapshots (single GPU->CPU transfer per snapshot)
     for i, (snapshot, t) in enumerate(zip(snapshots, snapshot_times, strict=False)):
         x_np = snapshot.numpy()
         ax[i].scatter(x_np[:, 0], x_np[:, 1], s=20, alpha=0.6)  # Larger points, add transparency
@@ -48,11 +44,9 @@ def visualize_mnist(x, solver, time_grid, h_step, num_plots=10):
     _, ax = plt.subplots(1, num_plots, figsize=(30, 4), sharex=True, sharey=True)
     sample_every = time_grid.shape[0] // num_plots
 
-    # Store snapshots to visualize (avoid premature .numpy() calls)
     snapshots = []
     snapshot_times = []
 
-    # Generate all samples first (stay on GPU)
     for idx in tqdm(range(int(time_grid.shape[0])), desc="Generating samples"):
         t = time_grid[idx]
         x = solver.sample(h_step, t, x)
@@ -62,9 +56,7 @@ def visualize_mnist(x, solver, time_grid, h_step, num_plots=10):
             snapshots.append(x)
             snapshot_times.append(t)
 
-    # Now visualize all snapshots (single GPU->CPU transfer per snapshot)
     for i, (snapshot, t) in enumerate(zip(snapshots, snapshot_times, strict=False)):
-        # Single realization per snapshot
         x_np = snapshot.numpy()[0, :].reshape((28, 28))
         x_normalized = (x_np - x_np.min()) / (x_np.max() - x_np.min() + 1e-8)
         ax[i].imshow(x_normalized, cmap="gray")
@@ -113,26 +105,20 @@ def visualize_cifar10(x, solver, time_grid, h_step, num_plots=10):
     _, ax = plt.subplots(1, num_plots, figsize=(30, 4), sharex=True, sharey=True)
     sample_every = time_grid.shape[0] // num_plots
 
-    # Store snapshots to visualize (avoid premature .numpy() calls)
     snapshots = []
     snapshot_times = []
 
-    # Generate all samples first (stay on GPU)
     for idx in tqdm(range(int(time_grid.shape[0])), desc="Generating samples"):
         t = time_grid[idx]
         x = solver.sample(h_step, t, x)
 
-        # Store reference for visualization (still on GPU)
         if (idx + 1) % sample_every == 0:
             snapshots.append(x)
             snapshot_times.append(t)
 
-    # Now visualize all snapshots (single GPU->CPU transfer per snapshot)
     for i, (snapshot, t) in enumerate(zip(snapshots, snapshot_times, strict=False)):
-        # Single realization per snapshot: (batch, C, H, W) -> (H, W, C)
         img = snapshot.numpy()[0, :].transpose(1, 2, 0)  # (3, 32, 32) -> (32, 32, 3)
 
-        # Normalize to [0, 1] for display
         img_normalized = (img - img.min()) / (img.max() - img.min() + 1e-8)
         img_normalized = np.clip(img_normalized, 0, 1)
 

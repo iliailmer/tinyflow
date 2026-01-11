@@ -33,7 +33,6 @@ class MLPNetwork(BaseNeuralNetwork):
             setattr(self, f"layer{i}", nn.Linear(prev_dim, hidden_dim))
             prev_dim = hidden_dim
 
-        # Output layer
         setattr(self, f"layer{len(hidden_dims)}", nn.Linear(prev_dim, out_dim))
 
         self.num_layers = len(hidden_dims) + 1
@@ -80,17 +79,14 @@ class UNetTinygrad(BaseNeuralNetwork):
         super().__init__()
         self.time_embed = SinusoidalTimeEmbedding(32)  # TimeEmbedding(dim=32)
 
-        # Encoder: +1 channel for time
         self.enc1 = ConvBlock(in_channels + self.time_embed.dim, 32)
         self.enc2 = ConvBlock(32, 64)
         self.enc3 = ConvBlock(64, 128)
         self.enc4 = ConvBlock(128, 256)
 
-        # Bottleneck
         self.bottleneck = ConvBlock(256, 512)
 
-        # Decoder with skip connections
-        self.dec4 = ConvTransposeBlock(512 + 256, 256, kernel_size=4)
+        self.dec4 = ConvTransposeBlock(512 + 256, 256)
         self.dec3 = ConvTransposeBlock(256 + 128, 128)
         self.dec2 = ConvTransposeBlock(128 + 64, 64)
         self.dec1 = ConvTransposeBlock(64 + 32, 32, stride=1, padding=1, output_padding=0)
@@ -109,21 +105,17 @@ class UNetTinygrad(BaseNeuralNetwork):
         Returns:
             Predicted velocity, shape (batch_size, out_channels, H, W)
         """
-        # Broadcast time to spatial dimensions and concatenate with input
         t_embed = self.time_embed(t)
         x = x.cat(t_embed.unsqueeze(-1).unsqueeze(-1).expand(-1, -1, x.shape[2], x.shape[3]), dim=1)
 
-        # Encoder path
         e1 = self.enc1(x)  # (B, 32, H, W)
         e2 = self.enc2(e1.max_pool2d((2, 2)))  # (B, 64, H/2, W/2)
         e3 = self.enc3(e2.max_pool2d((2, 2)))  # (B, 128, H/4, W/4)
         e4 = self.enc4(e3.max_pool2d((2, 2)))  # (B, 256, H/8, W/8)
 
-        # Bottleneck
-        b = self.bottleneck(e4)  # (B, 512, H/8, W/8)
+        bn = self.bottleneck(e4)  # (B, 512, H/8, W/8)
 
-        # Decoder path with skip connections
-        d4 = self.dec4(b.cat(e4, dim=1))  # (B, 256, H/4, W/4)
+        d4 = self.dec4(bn.cat(e4, dim=1))  # (B, 256, H/4, W/4)
         d3 = self.dec3(d4.cat(e3, dim=1))  # (B, 128, H/2, W/2)
         d2 = self.dec2(d3.cat(e2, dim=1))  # (B, 64, H, W)
         d1 = self.dec1(d2.cat(e1, dim=1))  # (B, 32, H, W)
@@ -131,8 +123,8 @@ class UNetTinygrad(BaseNeuralNetwork):
         return self.final_layer(d1)
 
 
-MLP = MLPNetwork  # Simple 3-layer MLP was the old default
-NeuralNetwork = MLPNetwork  # Both are now the same flexible MLP
+MLP = MLPNetwork
+NeuralNetwork = MLPNetwork
 
 
 def create_mlp_simple(in_dim: int, out_dim: int, time_embed_dim: int) -> MLPNetwork:

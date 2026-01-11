@@ -98,15 +98,15 @@ class MNISTTrainer(BaseTrainer):
             desc = f"Epoch {epoch_idx}"
         for batch in tqdm(self.dataloader, desc=desc):
             x_batch, _ = batch
-            x = T(x_batch)  # Already float32 from dataloader
-            t = T.rand(x.shape[0], 1) * 0.99  # Clamp to avoid t=1.0 singularities
+            x = T(x_batch)
+            t = T.rand(x.shape[0], 1) * 0.99
             x_0 = T.randn(*x.shape)
             x_t, dx_t = self.path.sample(x_1=x, t=t, x_0=x_0)
-            out = self.model(x_t, t)  # pyright: ignore
+            out = self.model(x_t, t)
             self.optim.zero_grad()
             loss = self.loss_fn(out, dx_t)
             loss.backward()
-            loss_value = loss.item()  # Single GPU→CPU sync
+            loss_value = loss.item()
             mean_loss_per_epoch += loss_value
             self._losses.append(loss_value)
             self.optim.step()
@@ -121,7 +121,6 @@ class MNISTTrainer(BaseTrainer):
             h_step = cfg.training.step_size
             time_grid = T.linspace(0, 1, int(1 / h_step))
 
-            # Generate visualization
             visualize_mnist(
                 x,
                 solver=solver,
@@ -152,20 +151,16 @@ class CIFAR10Trainer(BaseTrainer):
             x_batch, _ = batch
             x = T(x_batch)  # Already float32 from dataloader
 
-            # Sample random time and noise
             t = T.rand(x.shape[0], 1) * 0.99
             x_0 = T.randn(*x.shape)
 
-            # Flow matching step
             x_t, dx_t = self.path.sample(x_1=x, t=t, x_0=x_0)
             out = self.model(x_t, t)
 
-            # Backward pass
             self.optim.zero_grad()
             loss = self.loss_fn(out, dx_t)
             loss.backward()
 
-            # Log and step
             loss_value = loss.item()
             mean_loss_per_epoch += loss_value
             self._losses.append(loss_value)
@@ -179,13 +174,11 @@ class CIFAR10Trainer(BaseTrainer):
     def predict(self, cfg, solver: ODESolver):
         """Generate CIFAR-10 samples."""
         with T.train(False):
-            # Generate random noise with CIFAR-10 shape (3, 32, 32)
             num_samples = cfg.training.get("num_samples", 1)
             x = T.randn(num_samples, 3, 32, 32)
             h_step = cfg.training.step_size
             time_grid = T.linspace(0, 1, int(1 / h_step))
 
-            # Generate visualization
             visualize_cifar10(
                 x,
                 solver=solver,

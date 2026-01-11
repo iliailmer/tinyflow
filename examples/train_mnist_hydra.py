@@ -51,9 +51,15 @@ def create_scheduler(cfg: DictConfig):
 def create_model(cfg: DictConfig):
     """Create model from config."""
     model_type = cfg.model.type
+    dataset_type = cfg.dataset.get("type", cfg.dataset.name)
+
     if model_type == "unet":
-        return UNetTinygrad()
-    raise ValueError(f"Unknown model type: {model_type}")
+        if "mnist" in dataset_type:
+            return UNetTinygrad()
+        if "cifar" in dataset_type:
+            return UNetTinygrad(3, 3)
+
+    raise ValueError(f"Unknown model type: {model_type} with dataset type: {dataset_type}")
 
 
 def create_dataloader(cfg: DictConfig):

@@ -1,0 +1,16 @@
+# @package _global_
+
+defaults:
+  - model: neural_network
+  - dataset: moons
+  - generation: moons_default
+  - _self_
+
+# Random seed for reproducibility
+seed: 42
+
+# Output directory for generated samples
+output_dir: "outputs/generated/${now:%Y-%m-%d}/${now:%H-%M-%S}"
+
+# Note: Scheduler is not needed at generation time.
+# The model has already learned the velocity field during training.
