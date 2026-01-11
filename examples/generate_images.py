@@ -39,8 +39,13 @@ plt.style.use("ggplot")
 def create_model(cfg: DictConfig):
     """Create model from config."""
     model_type = cfg.model.type
+    dataset_type = cfg.dataset.get("type", cfg.dataset.name)
+
     if model_type == "unet":
-        return UNetTinygrad()
+        if "mnist" in dataset_type:
+            return UNetTinygrad()
+        if "cifar" in dataset_type:
+            return UNetTinygrad(3, 3)
     raise ValueError(f"Unknown model type: {model_type}")
 
 

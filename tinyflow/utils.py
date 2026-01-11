@@ -84,8 +84,8 @@ def preprocess_time_mnist(t: Tensor, rhs_prev: Tensor):
 
 
 def preprocess_time_cifar(t: Tensor, rhs_prev: Tensor):
-    t = t.reshape((1, 1, 1, 1)).expand((1, 1, 32, 32))
-    return t.repeat(rhs_prev.shape[0], 1, 1, 1)
+    t = t.reshape((1, 1))
+    return t.repeat(rhs_prev.shape[0], 1)
 
 
 @logger.catch
