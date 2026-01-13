@@ -141,7 +141,7 @@ class TestDDIM:
         solver = DDIM(rhs_fn=constant_rhs, eta=0.0)
 
         # Custom schedule: [0, 0.5, 1.0] instead of uniform [0, 0.1, 0.2, ...]
-        time_grid = T.tensor([0.0, 0.5, 1.0])
+        time_grid = T([0.0, 0.5, 1.0])
         x_init = T.zeros(1)
 
         x_final = solver.solve(x_init, time_grid)
