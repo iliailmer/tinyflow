@@ -158,6 +158,7 @@ def create_trainer(cfg: DictConfig, model, dataloader, optim, path, lr_scheduler
     dataset_type = cfg.dataset.get("type", cfg.dataset.name)
     num_epochs = cfg.training.num_epochs
     log_interval = cfg.training.log_interval
+    gradient_accumulation_steps = cfg.training.get("gradient_accumulation_steps", 1)
 
     if dataset_type in ["mnist", "fashion_mnist"]:
         return MNISTTrainer(
@@ -169,6 +170,7 @@ def create_trainer(cfg: DictConfig, model, dataloader, optim, path, lr_scheduler
             num_epochs=num_epochs,
             log_interval=log_interval,
             lr_scheduler=lr_scheduler,
+            gradient_accumulation_steps=gradient_accumulation_steps,
         )
     elif dataset_type == "cifar10":
         return CIFAR10Trainer(
@@ -180,6 +182,7 @@ def create_trainer(cfg: DictConfig, model, dataloader, optim, path, lr_scheduler
             num_epochs=num_epochs,
             log_interval=log_interval,
             lr_scheduler=lr_scheduler,
+            gradient_accumulation_steps=gradient_accumulation_steps,
         )
     else:
         raise ValueError(f"Unknown dataset type: {dataset_type}")

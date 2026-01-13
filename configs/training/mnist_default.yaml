@@ -8,3 +8,4 @@ training:
   save_model: true
   generate_samples: true
   num_plots: 10  # Number of intermediate plots for visualization
+  gradient_accumulation_steps: 1  # Number of steps to accumulate gradients (simulates larger batch)
