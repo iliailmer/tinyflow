@@ -74,10 +74,12 @@ class MLPNetwork(BaseNeuralNetwork):
         return final_layer(x)
 
 
-class UNetTinygrad(BaseNeuralNetwork):
+class UNetMNIST(BaseNeuralNetwork):
+    """U-Net optimized for 28x28 grayscale images (MNIST, Fashion MNIST)."""
+
     def __init__(self, in_channels: int = 1, out_channels: int = 1):
         super().__init__()
-        self.time_embed = SinusoidalTimeEmbedding(32)  # TimeEmbedding(dim=32)
+        self.time_embed = SinusoidalTimeEmbedding(32)
 
         self.enc1 = ConvBlock(in_channels + self.time_embed.dim, 32)
         self.enc2 = ConvBlock(32, 64)
@@ -86,41 +88,94 @@ class UNetTinygrad(BaseNeuralNetwork):
 
         self.bottleneck = ConvBlock(256, 512)
 
-        self.dec4 = ConvTransposeBlock(512 + 256, 256)
-        self.dec3 = ConvTransposeBlock(256 + 128, 128)
-        self.dec2 = ConvTransposeBlock(128 + 64, 64)
+        self.dec4 = ConvTransposeBlock(512 + 256, 256, output_padding=2)  # 3 -> 7 for odd dims
+        self.dec3 = ConvTransposeBlock(256 + 128, 128)  # 7 -> 14
+        self.dec2 = ConvTransposeBlock(128 + 64, 64)  # 14 -> 28
         self.dec1 = ConvTransposeBlock(64 + 32, 32, stride=1, padding=1, output_padding=0)
 
-        # Final output layer
         self.final_layer = nn.Conv2d(32, out_channels, kernel_size=1)
 
     def __call__(self, x: Tensor, t: Tensor) -> Tensor:
         """
-        Forward pass.
+        Forward pass for 28x28 images.
 
         Args:
-            x: Input image tensor, shape (batch_size, in_channels, H, W)
+            x: Input image tensor, shape (batch_size, in_channels, 28, 28)
             t: Time tensor, shape (batch_size, 1)
 
         Returns:
-            Predicted velocity, shape (batch_size, out_channels, H, W)
+            Predicted velocity, shape (batch_size, out_channels, 28, 28)
         """
         t_embed = self.time_embed(t)
         x = x.cat(t_embed.unsqueeze(-1).unsqueeze(-1).expand(-1, -1, x.shape[2], x.shape[3]), dim=1)
 
-        e1 = self.enc1(x)  # (B, 32, H, W)
-        e2 = self.enc2(e1.max_pool2d((2, 2)))  # (B, 64, H/2, W/2)
-        e3 = self.enc3(e2.max_pool2d((2, 2)))  # (B, 128, H/4, W/4)
-        e4 = self.enc4(e3.max_pool2d((2, 2)))  # (B, 256, H/8, W/8)
+        e1 = self.enc1(x)  # (B, 32, 28, 28)
+        e2 = self.enc2(e1.max_pool2d((2, 2)))  # (B, 64, 14, 14)
+        e3 = self.enc3(e2.max_pool2d((2, 2)))  # (B, 128, 7, 7)
+        e4 = self.enc4(e3.max_pool2d((2, 2)))  # (B, 256, 3, 3)
 
-        bn = self.bottleneck(e4)  # (B, 512, H/8, W/8)
+        bn = self.bottleneck(e4)  # (B, 512, 3, 3)
 
-        d4 = self.dec4(bn.cat(e4, dim=1))  # (B, 256, H/4, W/4)
-        d3 = self.dec3(d4.cat(e3, dim=1))  # (B, 128, H/2, W/2)
-        d2 = self.dec2(d3.cat(e2, dim=1))  # (B, 64, H, W)
-        d1 = self.dec1(d2.cat(e1, dim=1))  # (B, 32, H, W)
+        d4 = self.dec4(bn.cat(e4, dim=1))  # (B, 256, 7, 7)
+        d3 = self.dec3(d4.cat(e3, dim=1))  # (B, 128, 14, 14)
+        d2 = self.dec2(d3.cat(e2, dim=1))  # (B, 64, 28, 28)
+        d1 = self.dec1(d2.cat(e1, dim=1))  # (B, 32, 28, 28)
 
         return self.final_layer(d1)
+
+
+class UNetCIFAR10(BaseNeuralNetwork):
+    """U-Net optimized for 32x32 RGB images (CIFAR-10)."""
+
+    def __init__(self, in_channels: int = 3, out_channels: int = 3):
+        super().__init__()
+        self.time_embed = SinusoidalTimeEmbedding(32)
+
+        self.enc1 = ConvBlock(in_channels + self.time_embed.dim, 32)
+        self.enc2 = ConvBlock(32, 64)
+        self.enc3 = ConvBlock(64, 128)
+        self.enc4 = ConvBlock(128, 256)
+
+        self.bottleneck = ConvBlock(256, 512)
+
+        self.dec4 = ConvTransposeBlock(512 + 256, 256)  # 4 -> 8
+        self.dec3 = ConvTransposeBlock(256 + 128, 128)  # 8 -> 16
+        self.dec2 = ConvTransposeBlock(128 + 64, 64)  # 16 -> 32
+        self.dec1 = ConvTransposeBlock(64 + 32, 32, stride=1, padding=1, output_padding=0)
+
+        self.final_layer = nn.Conv2d(32, out_channels, kernel_size=1)
+
+    def __call__(self, x: Tensor, t: Tensor) -> Tensor:
+        """
+        Forward pass for 32x32 images.
+
+        Args:
+            x: Input image tensor, shape (batch_size, in_channels, 32, 32)
+            t: Time tensor, shape (batch_size, 1)
+
+        Returns:
+            Predicted velocity, shape (batch_size, out_channels, 32, 32)
+        """
+        t_embed = self.time_embed(t)
+        x = x.cat(t_embed.unsqueeze(-1).unsqueeze(-1).expand(-1, -1, x.shape[2], x.shape[3]), dim=1)
+
+        e1 = self.enc1(x)  # (B, 32, 32, 32)
+        e2 = self.enc2(e1.max_pool2d((2, 2)))  # (B, 64, 16, 16)
+        e3 = self.enc3(e2.max_pool2d((2, 2)))  # (B, 128, 8, 8)
+        e4 = self.enc4(e3.max_pool2d((2, 2)))  # (B, 256, 4, 4)
+
+        bn = self.bottleneck(e4)  # (B, 512, 4, 4)
+
+        d4 = self.dec4(bn.cat(e4, dim=1))  # (B, 256, 8, 8)
+        d3 = self.dec3(d4.cat(e3, dim=1))  # (B, 128, 16, 16)
+        d2 = self.dec2(d3.cat(e2, dim=1))  # (B, 64, 32, 32)
+        d1 = self.dec1(d2.cat(e1, dim=1))  # (B, 32, 32, 32)
+
+        return self.final_layer(d1)
+
+
+# Backward compatibility alias
+UNetTinygrad = UNetMNIST
 
 
 MLP = MLPNetwork

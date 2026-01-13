@@ -15,7 +15,7 @@ from tinygrad.tensor import Tensor as T
 
 from tinyflow.dataloader import CIFAR10Loader, FashionMNISTLoader, MNISTLoader
 from tinyflow.losses import mse
-from tinyflow.nn import UNetTinygrad
+from tinyflow.nn import UNetCIFAR10, UNetMNIST
 from tinyflow.nn_utils.lr_scheduler import (
     CosineAnnealingLR,
     StepLRScheduler,
@@ -113,10 +113,10 @@ def create_model(cfg: DictConfig):
     dataset_type = cfg.dataset.get("type", cfg.dataset.name)
 
     if model_type == "unet":
-        if "mnist" in dataset_type:
-            return UNetTinygrad()
-        if "cifar" in dataset_type:
-            return UNetTinygrad(3, 3)
+        if dataset_type in ["mnist", "fashion_mnist"]:
+            return UNetMNIST(in_channels=1, out_channels=1)
+        elif dataset_type == "cifar10":
+            return UNetCIFAR10(in_channels=3, out_channels=3)
 
     raise ValueError(f"Unknown model type: {model_type} with dataset type: {dataset_type}")
 

@@ -1,7 +1,7 @@
 import pytest
 from tinygrad.tensor import Tensor as T
 
-from tinyflow.nn import MLP, NeuralNetwork, UNetTinygrad
+from tinyflow.nn import MLP, NeuralNetwork, UNetCIFAR10, UNetMNIST
 
 
 class TestMLP:
@@ -24,22 +24,24 @@ class TestNeuralNetwork:
         assert output.shape == (8, 10)
 
 
-class TestUNetTinygrad:
+class TestUNetMNIST:
     def test_output_shape_mnist(self):
-        """Test UNet for MNIST-sized images"""
-        model = UNetTinygrad(in_channels=1, out_channels=1)
+        """Test UNetMNIST for 28x28 grayscale images"""
+        model = UNetMNIST(in_channels=1, out_channels=1)
         x = T.randn(2, 1, 28, 28)
         t = T.rand(2, 1)
         output = model(x, t)
         assert output.shape == (2, 1, 28, 28)
 
-    def test_multi_channel(self):
-        """Test UNet with RGB channels"""
-        model = UNetTinygrad(in_channels=3, out_channels=3)
-        x = T.randn(2, 3, 28, 28)
+
+class TestUNetCIFAR10:
+    def test_output_shape_cifar(self):
+        """Test UNetCIFAR10 for 32x32 RGB images"""
+        model = UNetCIFAR10(in_channels=3, out_channels=3)
+        x = T.randn(2, 3, 32, 32)
         t = T.rand(2, 1)
         output = model(x, t)
-        assert output.shape == (2, 3, 28, 28)
+        assert output.shape == (2, 3, 32, 32)
 
 
 if __name__ == "__main__":
