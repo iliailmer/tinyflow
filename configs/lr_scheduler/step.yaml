@@ -1,0 +1,6 @@
+# @package _global_
+
+lr_scheduler:
+  type: "StepLRScheduler"
+  step_size: 1000
+  gamma: 0.1

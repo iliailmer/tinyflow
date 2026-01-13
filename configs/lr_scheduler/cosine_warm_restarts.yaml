@@ -1,0 +1,7 @@
+# @package _global_
+
+lr_scheduler:
+  type: "CosineAnnealingLR"
+  t_max: 1000
+  eta_min: 0.0
+  warm: true

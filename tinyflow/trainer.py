@@ -28,6 +28,7 @@ class BaseTrainer(ABC):
         path: Path,
         num_epochs: int = 10_000,
         log_interval: int = 50,
+        lr_scheduler=None,
     ):
         self.model = model
         self.dataloader = dataloader
@@ -37,7 +38,9 @@ class BaseTrainer(ABC):
         self.path = path
         self.num_epochs = num_epochs
         self.log_interval = log_interval
+        self.lr_scheduler = lr_scheduler
         self._losses = []
+        self.global_step = 0
 
     def next_batch(self):
         try:
@@ -60,7 +63,14 @@ class BaseTrainer(ABC):
         with T.train(True):
             for epoch_idx in pbar:
                 mean_loss = self.epoch(epoch_idx)
-                mlflow.log_metrics({"loss": mean_loss})
+                metrics = {"loss": mean_loss}
+
+                # Log current learning rate
+                if self.lr_scheduler is not None:
+                    current_lr = self.lr_scheduler.get_lr()
+                    metrics["learning_rate"] = current_lr
+
+                mlflow.log_metrics(metrics)
                 pbar.set_description(f"Loss: {mean_loss:.4f}")
 
         return self.model
@@ -110,6 +120,12 @@ class MNISTTrainer(BaseTrainer):
             mean_loss_per_epoch += loss_value
             self._losses.append(loss_value)
             self.optim.step()
+
+            # Step learning rate scheduler per iteration
+            if self.lr_scheduler is not None:
+                self.lr_scheduler.step(self.global_step)
+                self.global_step += 1
+
         mean_loss_per_epoch = mean_loss_per_epoch / len(self.dataloader)
         if epoch_idx is not None:
             logger.info(f"Loss: {mean_loss_per_epoch:.4f}")
@@ -157,6 +173,11 @@ class CIFAR10Trainer(BaseTrainer):
             mean_loss_per_epoch += loss_value
             self._losses.append(loss_value)
             self.optim.step()
+
+            # Step learning rate scheduler per iteration
+            if self.lr_scheduler is not None:
+                self.lr_scheduler.step(self.global_step)
+                self.global_step += 1
 
         mean_loss_per_epoch = mean_loss_per_epoch / len(self.dataloader)
         if epoch_idx is not None:

@@ -16,6 +16,11 @@ from tinygrad.tensor import Tensor as T
 from tinyflow.dataloader import CIFAR10Loader, FashionMNISTLoader, MNISTLoader
 from tinyflow.losses import mse
 from tinyflow.nn import UNetTinygrad
+from tinyflow.nn_utils.lr_scheduler import (
+    CosineAnnealingLR,
+    StepLRScheduler,
+    WarmupScheduler,
+)
 from tinyflow.path import AffinePath
 from tinyflow.path.scheduler import (
     CosineScheduler,
@@ -46,6 +51,60 @@ def create_scheduler(cfg: DictConfig):
         degree = cfg.scheduler.get("degree", 2)
         return PolynomialScheduler(degree)
     raise ValueError(f"Unknown scheduler type: {scheduler_type}")
+
+
+def create_lr_scheduler(cfg: DictConfig, optimizer):
+    """Create learning rate scheduler from config."""
+    if not cfg.get("lr_scheduler"):
+        return None
+
+    scheduler_type = cfg.lr_scheduler.type
+
+    # Create base scheduler
+    if scheduler_type == "NullLRScheduler":
+        return None
+    elif scheduler_type == "StepLRScheduler":
+        base_scheduler = StepLRScheduler(
+            optimizer,
+            step_size=cfg.lr_scheduler.get("step_size", 1000),
+            gamma=cfg.lr_scheduler.get("gamma", 0.1),
+        )
+    elif scheduler_type == "CosineAnnealingLR":
+        base_scheduler = CosineAnnealingLR(
+            optimizer,
+            t_max=cfg.lr_scheduler.get("t_max", 5000),
+            eta_min=cfg.lr_scheduler.get("eta_min", 0.0),
+            warm=cfg.lr_scheduler.get("warm", False),
+        )
+    elif scheduler_type == "WarmupScheduler":
+        # Create nested base scheduler
+        base_cfg = cfg.lr_scheduler.base_scheduler
+        if base_cfg.type == "StepLRScheduler":
+            nested_scheduler = StepLRScheduler(
+                optimizer,
+                step_size=base_cfg.get("step_size", 1000),
+                gamma=base_cfg.get("gamma", 0.1),
+            )
+        elif base_cfg.type == "CosineAnnealingLR":
+            nested_scheduler = CosineAnnealingLR(
+                optimizer,
+                t_max=base_cfg.get("t_max", 5000),
+                eta_min=base_cfg.get("eta_min", 0.0),
+                warm=base_cfg.get("warm", False),
+            )
+        else:
+            raise ValueError(f"Unknown base scheduler type: {base_cfg.type}")
+
+        return WarmupScheduler(
+            optimizer,
+            base_scheduler=nested_scheduler,
+            warmup_steps=cfg.lr_scheduler.get("warmup_steps", 500),
+            warmup_start_lr=cfg.lr_scheduler.get("warmup_start_lr", 0.0),
+        )
+    else:
+        raise ValueError(f"Unknown LR scheduler type: {scheduler_type}")
+
+    return base_scheduler
 
 
 def create_model(cfg: DictConfig):
@@ -94,7 +153,7 @@ def create_dataloader(cfg: DictConfig):
         raise ValueError(f"Unknown dataset type: {dataset_type}")
 
 
-def create_trainer(cfg: DictConfig, model, dataloader, optim, path):
+def create_trainer(cfg: DictConfig, model, dataloader, optim, path, lr_scheduler=None):
     """Create trainer from config."""
     dataset_type = cfg.dataset.get("type", cfg.dataset.name)
     num_epochs = cfg.training.num_epochs
@@ -109,6 +168,7 @@ def create_trainer(cfg: DictConfig, model, dataloader, optim, path):
             path=path,
             num_epochs=num_epochs,
             log_interval=log_interval,
+            lr_scheduler=lr_scheduler,
         )
     elif dataset_type == "fashion_mnist":
         return FashionMNISTTrainer(
@@ -119,6 +179,7 @@ def create_trainer(cfg: DictConfig, model, dataloader, optim, path):
             path=path,
             num_epochs=num_epochs,
             log_interval=log_interval,
+            lr_scheduler=lr_scheduler,
         )
     elif dataset_type == "cifar10":
         return CIFAR10Trainer(
@@ -129,6 +190,7 @@ def create_trainer(cfg: DictConfig, model, dataloader, optim, path):
             path=path,
             num_epochs=num_epochs,
             log_interval=log_interval,
+            lr_scheduler=lr_scheduler,
         )
     else:
         raise ValueError(f"Unknown dataset type: {dataset_type}")
@@ -179,9 +241,12 @@ def main(cfg: DictConfig):
     # Create optimizer
     optim = Adam(get_parameters(model), lr=cfg.optimizer.lr)
 
+    # Create learning rate scheduler
+    lr_scheduler = create_lr_scheduler(cfg, optim)
+
     # Create dataloader and trainer based on dataset type
     dataloader = create_dataloader(cfg)
-    trainer = create_trainer(cfg, model, dataloader, optim, path)
+    trainer = create_trainer(cfg, model, dataloader, optim, path, lr_scheduler)
 
     # Train the model
     dataset_name = cfg.dataset.get("type", cfg.dataset.name)

@@ -4,6 +4,7 @@ defaults:
   - model: unet
   - scheduler: linear
   - optimizer: adam
+  - lr_scheduler: none
   - dataset: mnist
   - training: mnist_default
   - _self_

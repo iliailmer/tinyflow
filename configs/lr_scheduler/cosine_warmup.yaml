@@ -1,0 +1,11 @@
+# @package _global_
+
+lr_scheduler:
+  type: "WarmupScheduler"
+  warmup_steps: 500
+  warmup_start_lr: 0.0
+  base_scheduler:
+    type: "CosineAnnealingLR"
+    t_max: 5000
+    eta_min: 0.0
+    warm: false
