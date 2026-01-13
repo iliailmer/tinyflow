@@ -29,7 +29,7 @@ from tinyflow.path.scheduler import (
     PolynomialScheduler,
 )
 from tinyflow.solver import RK4
-from tinyflow.trainer import CIFAR10Trainer, FashionMNISTTrainer, MNISTTrainer
+from tinyflow.trainer import CIFAR10Trainer, MNISTTrainer
 from tinyflow.utils import preprocess_time_cifar, preprocess_time_mnist
 
 plt.style.use("ggplot")
@@ -159,19 +159,8 @@ def create_trainer(cfg: DictConfig, model, dataloader, optim, path, lr_scheduler
     num_epochs = cfg.training.num_epochs
     log_interval = cfg.training.log_interval
 
-    if dataset_type in ["mnist"]:
+    if dataset_type in ["mnist", "fashion_mnist"]:
         return MNISTTrainer(
-            model=model,
-            dataloader=dataloader,
-            optim=optim,
-            loss_fn=mse,
-            path=path,
-            num_epochs=num_epochs,
-            log_interval=log_interval,
-            lr_scheduler=lr_scheduler,
-        )
-    elif dataset_type == "fashion_mnist":
-        return FashionMNISTTrainer(
             model=model,
             dataloader=dataloader,
             optim=optim,
