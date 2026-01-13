@@ -29,6 +29,7 @@ class BaseTrainer(ABC):
         num_epochs: int = 10_000,
         log_interval: int = 50,
         lr_scheduler=None,
+        gradient_accumulation_steps: int = 1,
     ):
         self.model = model
         self.dataloader = dataloader
@@ -39,8 +40,10 @@ class BaseTrainer(ABC):
         self.num_epochs = num_epochs
         self.log_interval = log_interval
         self.lr_scheduler = lr_scheduler
+        self.gradient_accumulation_steps = gradient_accumulation_steps
         self._losses = []
         self.global_step = 0
+        self.accumulation_step = 0
 
     def next_batch(self):
         try:
@@ -113,18 +116,30 @@ class MNISTTrainer(BaseTrainer):
             x_0 = T.randn(*x.shape)
             x_t, dx_t = self.path.sample(x_1=x, t=t, x_0=x_0)
             out = self.model(x_t, t)
-            self.optim.zero_grad()
-            loss = self.loss_fn(out, dx_t)
+
+            # Zero gradients at start of accumulation
+            if self.accumulation_step == 0:
+                self.optim.zero_grad()
+
+            # Scale loss by accumulation steps for proper gradient averaging
+            loss = self.loss_fn(out, dx_t) / self.gradient_accumulation_steps
             loss.backward()
-            loss_value = loss.item()
+
+            loss_value = loss.item() * self.gradient_accumulation_steps  # Un-scale for logging
             mean_loss_per_epoch += loss_value
             self._losses.append(loss_value)
-            self.optim.step()
 
-            # Step learning rate scheduler per iteration
-            if self.lr_scheduler is not None:
-                self.lr_scheduler.step(self.global_step)
-                self.global_step += 1
+            self.accumulation_step += 1
+
+            # Step optimizer when accumulation is complete
+            if self.accumulation_step >= self.gradient_accumulation_steps:
+                self.optim.step()
+                self.accumulation_step = 0
+
+                # Step learning rate scheduler per optimizer step
+                if self.lr_scheduler is not None:
+                    self.lr_scheduler.step(self.global_step)
+                    self.global_step += 1
 
         mean_loss_per_epoch = mean_loss_per_epoch / len(self.dataloader)
         if epoch_idx is not None:

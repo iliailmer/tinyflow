@@ -75,7 +75,15 @@ class MLPNetwork(BaseNeuralNetwork):
 
 
 class UNetMNIST(BaseNeuralNetwork):
-    """U-Net optimized for 28x28 grayscale images (MNIST, Fashion MNIST)."""
+    """
+    Modern U-Net optimized for 28x28 grayscale images (MNIST, Fashion MNIST).
+
+    Architecture improvements:
+    - GroupNorm instead of BatchNorm (stable for small batches)
+    - Residual connections in all blocks (better gradient flow)
+    - Swish activation (proven in diffusion models)
+    - Skip connections (standard U-Net)
+    """
 
     def __init__(self, in_channels: int = 1, out_channels: int = 1):
         super().__init__()
@@ -125,7 +133,16 @@ class UNetMNIST(BaseNeuralNetwork):
 
 
 class UNetCIFAR10(BaseNeuralNetwork):
-    """U-Net optimized for 32x32 RGB images (CIFAR-10)."""
+    """
+    Modern U-Net optimized for 32x32 RGB images (CIFAR-10).
+
+    Architecture improvements:
+    - GroupNorm instead of BatchNorm (stable for small batches)
+    - Residual connections in all blocks (better gradient flow)
+    - Swish activation (proven in diffusion models)
+    - Skip connections (standard U-Net)
+    - Clean power-of-2 dimensions (no output_padding hacks needed)
+    """
 
     def __init__(self, in_channels: int = 3, out_channels: int = 3):
         super().__init__()
