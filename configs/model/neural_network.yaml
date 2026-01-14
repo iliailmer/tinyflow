@@ -1,5 +1,5 @@
 # @package _global_
-
+# TODO: cleanup model config
 model:
   name: "NeuralNetwork"
   type: "neural_network"
