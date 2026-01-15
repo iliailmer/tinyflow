@@ -19,6 +19,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 from omegaconf import DictConfig, OmegaConf
 from PIL import Image
+from tinygrad import TinyJit
 from tinygrad.tensor import Tensor as T
 from tqdm import tqdm
 
@@ -61,10 +62,15 @@ def generate_static_visualization(cfg: DictConfig, solver):
     snapshots = []
     snapshot_times = []
 
+    # JIT compile the solver step for better performance
+    @TinyJit
+    def jit_step(step_size, t, x):
+        return solver.sample(step_size, t, x)
+
     # Generate all samples first
     for idx in tqdm(range(int(time_grid.shape[0])), desc="Generating samples"):
-        t = time_grid[idx]
-        x = solver.sample(step_size, t, x)
+        t = time_grid[idx].contiguous()
+        x = jit_step(step_size, t, x)
 
         # Store reference for visualization
         if (idx + 1) % sample_every == 0:
@@ -115,10 +121,15 @@ def generate_animation(cfg: DictConfig, solver):
     snapshots = []
     snapshot_times = []
 
+    # JIT compile the solver step for better performance
+    @TinyJit
+    def jit_step(step_size, t, x):
+        return solver.sample(step_size, t, x)
+
     # Generate all samples first
     for idx in tqdm(range(int(time_grid.shape[0])), desc="Generating animation"):
-        t = time_grid[idx]
-        x = solver.sample(step_size, t, x)
+        t = time_grid[idx].contiguous()
+        x = jit_step(step_size, t, x)
 
         # Store reference for visualization
         if (idx + 1) % sample_every == 0:

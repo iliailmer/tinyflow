@@ -28,7 +28,7 @@ from tinyflow.path.scheduler import (
     LinearVarPresScheduler,
     PolynomialScheduler,
 )
-from tinyflow.solver import RK4
+from tinyflow.solver import Heun
 from tinyflow.trainer import CIFAR10Trainer, MNISTTrainer
 from tinyflow.utils import preprocess_time_cifar, preprocess_time_mnist
 
@@ -257,7 +257,7 @@ def main(cfg: DictConfig):
     # Generate samples if requested
     if cfg.training.get("generate_samples", True):
         preprocess_hook = get_preprocess_hook(cfg)
-        solver = RK4(model, preprocess_hook=preprocess_hook)
+        solver = Heun(model, preprocess_hook=preprocess_hook)
         trainer.predict(cfg, solver)
 
 

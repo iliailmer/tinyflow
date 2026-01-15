@@ -6,7 +6,7 @@ generation:
 
   # Generation settings
   grid_size: 5  # Grid size (n×n)
-  num_steps: 100  # Number of ODE steps for generation
+  num_steps: 20  # Number of ODE steps for generation
   seed: 42  # Random seed
   animated: false  # Set to true to generate animation (or use --animated flag)
 

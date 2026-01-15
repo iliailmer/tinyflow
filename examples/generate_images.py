@@ -25,11 +25,12 @@ import matplotlib.pyplot as plt
 import numpy as np
 from omegaconf import DictConfig, OmegaConf
 from PIL import Image
+from tinygrad import TinyJit
 from tinygrad.tensor import Tensor as T
 from tqdm import tqdm
 
 from tinyflow.nn import UNetTinygrad
-from tinyflow.solver import RK4
+from tinyflow.solver import Heun
 from tinyflow.trainer import BaseTrainer
 from tinyflow.utils import preprocess_time_cifar, preprocess_time_mnist
 
@@ -86,10 +87,15 @@ def generate_static_grid(cfg: DictConfig, model, solver, dataset_config):
     x = T.randn(*shape)
     h_step = 1.0 / num_steps
 
+    # JIT compile the solver step for better performance
+    @TinyJit
+    def jit_step(h, t, x):
+        return solver.sample(h, t, x)
+
     # Solve ODE from t=0 to t=1
     for step in tqdm(range(num_steps), desc="Generating"):
-        t = T.zeros(1) + step * h_step
-        x = solver.sample(h_step, t, x)
+        t = (T.zeros(1) + step * h_step).contiguous()
+        x = jit_step(h_step, t, x)
 
     # Convert to numpy and normalize
     x_np = x.numpy()
@@ -154,10 +160,15 @@ def generate_animation(cfg: DictConfig, model, solver, dataset_config):
     capture_steps = np.linspace(0, num_steps - 1, num_frames, dtype=int)
     frames = []
 
+    # JIT compile the solver step for better performance
+    @TinyJit
+    def jit_step(h, t, x):
+        return solver.sample(h, t, x)
+
     # Solve ODE and capture frames
     for step in tqdm(range(num_steps), desc="Generating animation"):
-        t = T.zeros(1) + step * h_step
-        x = solver.sample(h_step, t, x)
+        t = (T.zeros(1) + step * h_step).contiguous()
+        x = jit_step(h_step, t, x)
 
         # Capture frame at specified steps
         if step in capture_steps:
@@ -251,7 +262,7 @@ def main_impl(cfg: DictConfig):
     dataset_config = get_dataset_config(cfg)
 
     # Create solver
-    solver = RK4(model, preprocess_hook=dataset_config["preprocess_hook"])
+    solver = Heun(model, preprocess_hook=dataset_config["preprocess_hook"])
 
     # Generate samples
     if animated:

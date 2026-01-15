@@ -2,13 +2,16 @@ import pickle
 
 from loguru import logger
 from matplotlib import pyplot as plt
+from tinygrad import TinyJit
 from tqdm.auto import tqdm
 
 from tinyflow.nn import Tensor
 
 
 @logger.catch
-def visualize_moons(x, solver, time_grid, h_step, num_plots=10):
+def visualize_moons(
+    x, solver, time_grid, h_step, num_plots=10, save_path="outputs/moons_generation.png"
+):
     """Optimized moons visualization with minimal tensor realizations."""
     _, ax = plt.subplots(1, num_plots, figsize=(30, 4), sharex=True, sharey=True)
     sample_every = time_grid.shape[0] // num_plots
@@ -16,9 +19,14 @@ def visualize_moons(x, solver, time_grid, h_step, num_plots=10):
     snapshots = []
     snapshot_times = []
 
+    # JIT compile the solver step for better performance
+    @TinyJit
+    def jit_step(h_step, t, x):
+        return solver.sample(h_step, t, x)
+
     for idx in tqdm(range(int(time_grid.shape[0])), desc="Generating samples"):
-        t = time_grid[idx]
-        x = solver.sample(h_step, t, x)
+        t = time_grid[idx].contiguous()
+        x = jit_step(h_step, t, x)
 
         if (idx + 1) % sample_every == 0:
             snapshots.append(x)
@@ -33,13 +41,22 @@ def visualize_moons(x, solver, time_grid, h_step, num_plots=10):
         ax[i].grid(True, alpha=0.3)
 
     plt.tight_layout()
-    plt.savefig("moons_generation.png", dpi=150, bbox_inches="tight")
-    print("✓ Saved moons_generation.png")
-    plt.show()
+
+    # Save to file
+    import os
+
+    os.makedirs(os.path.dirname(save_path), exist_ok=True)
+    plt.savefig(save_path, dpi=150, bbox_inches="tight")
+    print(f"✓ Saved {save_path}")
+    plt.close()
+
+    return save_path
 
 
 @logger.catch
-def visualize_mnist(x, solver, time_grid, h_step, num_plots=10):
+def visualize_mnist(
+    x, solver, time_grid, h_step, num_plots=10, save_path="outputs/mnist_generation.png"
+):
     """Optimized MNIST visualization with minimal tensor realizations."""
     _, ax = plt.subplots(1, num_plots, figsize=(30, 4), sharex=True, sharey=True)
     sample_every = time_grid.shape[0] // num_plots
@@ -47,9 +64,14 @@ def visualize_mnist(x, solver, time_grid, h_step, num_plots=10):
     snapshots = []
     snapshot_times = []
 
+    # JIT compile the solver step for better performance
+    @TinyJit
+    def jit_step(h_step, t, x):
+        return solver.sample(h_step, t, x)
+
     for idx in tqdm(range(int(time_grid.shape[0])), desc="Generating samples"):
-        t = time_grid[idx]
-        x = solver.sample(h_step, t, x)
+        t = time_grid[idx].contiguous()
+        x = jit_step(h_step, t, x)
 
         # Store reference for visualization (still on GPU)
         if (idx + 1) % sample_every == 0:
@@ -64,7 +86,16 @@ def visualize_mnist(x, solver, time_grid, h_step, num_plots=10):
         ax[i].set_title(f"t={t.numpy():.2f}")
 
     plt.tight_layout()
-    plt.show()
+
+    # Save to file
+    import os
+
+    os.makedirs(os.path.dirname(save_path), exist_ok=True)
+    plt.savefig(save_path, dpi=150, bbox_inches="tight")
+    print(f"✓ Saved {save_path}")
+    plt.close()
+
+    return save_path
 
 
 def unpickle(file):
@@ -89,7 +120,9 @@ def preprocess_time_cifar(t: Tensor, rhs_prev: Tensor):
 
 
 @logger.catch
-def visualize_cifar10(x, solver, time_grid, h_step, num_plots=10):
+def visualize_cifar10(
+    x, solver, time_grid, h_step, num_plots=10, save_path="outputs/cifar10_generation.png"
+):
     """
     Optimized CIFAR-10 visualization with minimal tensor realizations.
 
@@ -99,7 +132,10 @@ def visualize_cifar10(x, solver, time_grid, h_step, num_plots=10):
         time_grid: Time steps
         h_step: Step size
         num_plots: Number of intermediate visualizations
+        save_path: Path to save the visualization image
     """
+    import os
+
     import numpy as np
 
     _, ax = plt.subplots(1, num_plots, figsize=(30, 4), sharex=True, sharey=True)
@@ -108,9 +144,14 @@ def visualize_cifar10(x, solver, time_grid, h_step, num_plots=10):
     snapshots = []
     snapshot_times = []
 
+    # JIT compile the solver step for better performance
+    @TinyJit
+    def jit_step(h_step, t, x):
+        return solver.sample(h_step, t, x)
+
     for idx in tqdm(range(int(time_grid.shape[0])), desc="Generating samples"):
-        t = time_grid[idx]
-        x = solver.sample(h_step, t, x)
+        t = time_grid[idx].contiguous()
+        x = jit_step(h_step, t, x)
 
         if (idx + 1) % sample_every == 0:
             snapshots.append(x)
@@ -127,5 +168,11 @@ def visualize_cifar10(x, solver, time_grid, h_step, num_plots=10):
         ax[i].set_title(f"t={t.numpy():.2f}")
 
     plt.tight_layout()
-    plt.savefig("outputs/cifar10_generation.png", dpi=150, bbox_inches="tight")
-    plt.show()
+
+    # Save to file
+    os.makedirs(os.path.dirname(save_path), exist_ok=True)
+    plt.savefig(save_path, dpi=150, bbox_inches="tight")
+    print(f"✓ Saved {save_path}")
+    plt.close()
+
+    return save_path
