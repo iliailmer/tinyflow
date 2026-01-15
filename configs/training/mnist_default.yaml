@@ -9,3 +9,8 @@ training:
   generate_samples: true
   num_plots: 10  # Number of intermediate plots for visualization
   gradient_accumulation_steps: 1  # Number of steps to accumulate gradients (simulates larger batch)
+
+  # FID evaluation settings
+  compute_fid: false  # Set to true after training FID classifier
+  fid_interval: 50  # Evaluate FID every N epochs
+  fid_num_samples: 500  # Number of samples for FID calculation

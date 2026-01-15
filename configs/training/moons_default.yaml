@@ -8,3 +8,6 @@ training:
   save_model: true
   generate_samples: true
   num_plots: 10  # Number of intermediate plots for visualization
+
+  # FID evaluation (not applicable to 2D data)
+  compute_fid: false
