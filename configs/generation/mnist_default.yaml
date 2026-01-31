@@ -17,3 +17,7 @@ generation:
   # Output settings
   output_dir: "outputs/generated"
   show_plot: false  # Set to true to display plot after generation
+
+  # Evaluation settings (requires trained FID classifier)
+  show_predictions: true  # Set to true to show class predictions on images
+  compute_fid: true  # Set to true to compute FID score against real images

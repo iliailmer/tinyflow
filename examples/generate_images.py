@@ -14,6 +14,15 @@ Usage:
     # Generate with animation
     uv run examples/generate_images.py generation.model_path=model_mnist_unet_linear.safetensors --animated
 
+    # Generate with class predictions (requires trained FID classifier)
+    uv run examples/generate_images.py generation.model_path=model.safetensors generation.show_predictions=true
+
+    # Generate with FID computation (requires trained FID classifier)
+    uv run examples/generate_images.py generation.model_path=model.safetensors generation.compute_fid=true
+
+    # Generate with both predictions and FID
+    uv run examples/generate_images.py generation.model_path=model.safetensors generation.show_predictions=true generation.compute_fid=true
+
     # Override grid size and steps
     uv run examples/generate_images.py generation.model_path=model.safetensors generation.grid_size=3 generation.num_steps=50
 """
@@ -29,12 +38,42 @@ from tinygrad import TinyJit
 from tinygrad.tensor import Tensor as T
 from tqdm import tqdm
 
+from tinyflow.metrics import get_feature_extractor
 from tinyflow.nn import UNetTinygrad
 from tinyflow.solver import Heun
 from tinyflow.trainer import BaseTrainer
 from tinyflow.utils import preprocess_time_cifar, preprocess_time_mnist
 
 plt.style.use("ggplot")
+
+# Class names for datasets
+CLASS_NAMES = {
+    "mnist": ["0", "1", "2", "3", "4", "5", "6", "7", "8", "9"],
+    "fashion_mnist": [
+        "T-shirt/top",
+        "Trouser",
+        "Pullover",
+        "Dress",
+        "Coat",
+        "Sandal",
+        "Shirt",
+        "Sneaker",
+        "Bag",
+        "Ankle boot",
+    ],
+    "cifar10": [
+        "Airplane",
+        "Automobile",
+        "Bird",
+        "Cat",
+        "Deer",
+        "Dog",
+        "Frog",
+        "Horse",
+        "Ship",
+        "Truck",
+    ],
+}
 
 
 def create_model(cfg: DictConfig):
@@ -72,6 +111,131 @@ def get_dataset_config(cfg: DictConfig):
         raise ValueError(f"Unknown dataset type: {dataset_type}")
 
 
+def compute_fid_for_generated(
+    generated_images: np.ndarray, dataset_name: str, cfg: DictConfig
+) -> float | None:
+    """
+    Compute FID score between generated images and real dataset images.
+
+    Args:
+        generated_images: Generated images, shape (n, channels, H, W), normalized to [0, 1]
+        dataset_name: Dataset name (mnist, fashion_mnist, cifar10)
+        cfg: Configuration object
+
+    Returns:
+        FID score or None if not available
+    """
+    try:
+        from tinyflow.dataloader import CIFAR10Loader, FashionMNISTLoader, MNISTLoader
+        from tinyflow.metrics import calculate_fid
+
+        # Load classifier for FID
+        classifier = get_feature_extractor(dataset_name)
+
+        if not classifier._weights_loaded:
+            print(f"Warning: FID classifier weights not found for {dataset_name}")
+            print(f"Run: uv run scripts/train_fid_classifier.py --dataset {dataset_name}")
+            return None
+
+        # Load real images from dataset
+        num_samples = len(generated_images)
+        print(f"Loading {num_samples} real images from {dataset_name}...")
+
+        if dataset_name == "mnist":
+            dataloader = MNISTLoader(
+                path="dataset/mnist/trainset/trainingSet/*/*.jpg",
+                batch_size=64,
+                shuffle=True,
+                flatten=False,
+            )
+        elif dataset_name == "fashion_mnist":
+            dataloader = FashionMNISTLoader(
+                path="dataset/fashion_mnist",
+                batch_size=64,
+                shuffle=True,
+                flatten=False,
+                train=True,
+            )
+        elif dataset_name == "cifar10":
+            dataloader = CIFAR10Loader(
+                path="dataset/cifar10/cifar-10-batches-py",
+                batch_size=64,
+                shuffle=True,
+                train=True,
+            )
+        else:
+            print(f"Unknown dataset: {dataset_name}")
+            return None
+
+        # Collect real images
+        real_images = []
+        for batch_images, _ in dataloader:
+            real_images.append(batch_images)
+            if len(np.concatenate(real_images, axis=0)) >= num_samples:
+                break
+
+        real_images = np.concatenate(real_images, axis=0)[:num_samples]
+
+        # Compute FID
+        fid_score = calculate_fid(
+            real_images, generated_images, feature_extractor=classifier, batch_size=64
+        )
+
+        return fid_score
+
+    except Exception as e:
+        print(f"Error computing FID: {e}")
+        import traceback
+
+        traceback.print_exc()
+        return None
+
+
+def classify_images(images_np: np.ndarray, dataset_name: str):
+    """
+    Classify generated images and return predictions.
+
+    Args:
+        images_np: Generated images, shape (n, channels, H, W), normalized to [0, 1]
+        dataset_name: Dataset name (mnist, fashion_mnist, cifar10)
+
+    Returns:
+        List of tuples (class_idx, class_name, confidence) or None if classifier not available
+    """
+    try:
+        # Load classifier
+        classifier = get_feature_extractor(dataset_name)
+
+        # Check if weights are loaded
+        if not classifier._weights_loaded:
+            print(f"Warning: Classifier weights not found for {dataset_name}")
+            print(f"Run: uv run scripts/train_fid_classifier.py --dataset {dataset_name}")
+            return None
+
+        # Run inference
+        with T.train(False):
+            images_tensor = T(images_np)
+            logits = classifier.model(images_tensor)
+            probs = logits.softmax(axis=-1)
+
+            # Get predictions
+            class_indices = probs.numpy().argmax(axis=-1)
+            confidences = probs.numpy().max(axis=-1)
+
+        # Get class names
+        class_names = CLASS_NAMES.get(dataset_name, [str(i) for i in range(10)])
+
+        results = []
+        for idx, conf in zip(class_indices, confidences, strict=False):
+            results.append((int(idx), class_names[idx], float(conf)))
+
+        return results
+
+    except Exception as e:
+        print(f"Error classifying images: {e}")
+        return None
+
+
 def generate_static_grid(cfg: DictConfig, model, solver, dataset_config):
     """Generate a static grid of samples."""
     grid_size = cfg.generation.grid_size
@@ -102,12 +266,29 @@ def generate_static_grid(cfg: DictConfig, model, solver, dataset_config):
     x_np = (x_np - x_np.min()) / (x_np.max() - x_np.min() + 1e-8)
     x_np = np.clip(x_np, 0, 1)
 
+    # Compute FID if enabled
+    if cfg.generation.get("compute_fid", False):
+        print("\nComputing FID score...")
+        fid_score = compute_fid_for_generated(x_np, dataset_name, cfg)
+        if fid_score is not None:
+            print(f"FID Score: {fid_score:.4f}")
+
+    # Classify generated images if enabled
+    predictions = None
+    if cfg.generation.get("show_predictions", False):
+        print("Classifying generated images...")
+        predictions = classify_images(x_np, dataset_name)
+
     # Plot grid
     fig, axes = plt.subplots(grid_size, grid_size, figsize=(10, 10))
     if grid_size == 1:
         axes = np.array([[axes]])
     elif len(axes.shape) == 1:
         axes = axes.reshape(-1, 1)
+
+    # Add FID score as figure title if computed
+    if cfg.generation.get("compute_fid", False) and fid_score is not None:
+        fig.suptitle(f"FID Score: {fid_score:.2f}", fontsize=16, fontweight="bold", y=0.98)
 
     for i in range(grid_size):
         for j in range(grid_size):
@@ -120,6 +301,12 @@ def generate_static_grid(cfg: DictConfig, model, solver, dataset_config):
             else:
                 img = x_np[idx, 0]
                 ax.imshow(img, cmap=dataset_config["cmap"])
+
+            # Add prediction label if available
+            if predictions is not None:
+                class_idx, class_name, confidence = predictions[idx]
+                label = f"{class_name}\n{confidence:.1%}"
+                ax.set_title(label, fontsize=12, pad=4, fontweight="bold")
 
             ax.axis("off")
 
@@ -176,6 +363,11 @@ def generate_animation(cfg: DictConfig, model, solver, dataset_config):
             x_normalized = (x_np - x_np.min()) / (x_np.max() - x_np.min() + 1e-8)
             x_normalized = np.clip(x_normalized, 0, 1)
 
+            # Classify if at final step and predictions enabled
+            predictions = None
+            if cfg.generation.get("show_predictions", False) and step == capture_steps[-1]:
+                predictions = classify_images(x_normalized, dataset_name)
+
             # Create grid image
             fig, axes = plt.subplots(grid_size, grid_size, figsize=(8, 8))
             fig.suptitle(f"t = {step / num_steps:.2f}", fontsize=16, y=0.98)
@@ -196,6 +388,12 @@ def generate_animation(cfg: DictConfig, model, solver, dataset_config):
                     else:
                         img = x_normalized[idx, 0]
                         ax.imshow(img, cmap=dataset_config["cmap"])
+
+                    # Add prediction label if available (only on final frame)
+                    if predictions is not None:
+                        class_idx, class_name, confidence = predictions[idx]
+                        label = f"{class_name}\n{confidence:.1%}"
+                        ax.set_title(label, fontsize=6, pad=2)
 
                     ax.axis("off")
 
