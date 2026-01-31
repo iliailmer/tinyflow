@@ -1,0 +1,12 @@
+# @package _global_
+
+dataset:
+  name: cifar10
+  type: cifar10
+  path: dataset/cifar10/cifar-10-batches-py
+  batch_size: 128  # Larger batch size for CIFAR-10
+  shuffle: true
+  flatten: false  # CIFAR-10 needs spatial structure (3, 32, 32)
+  cache: true  # Cache in memory for fast training (~600MB RAM)
+  normalize: true  # Normalize to [0, 1]
+  train: true  # Use training set

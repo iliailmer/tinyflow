@@ -1,0 +1,10 @@
+# @package _global_
+
+dataset:
+  name: "fashion_mnist"
+  type: "fashion_mnist"
+  path: "dataset/fashion_mnist"
+  flatten: false
+  batch_size: 32
+  shuffle: true
+  train: true
