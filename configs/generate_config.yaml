@@ -2,6 +2,7 @@
 
 defaults:
   - model: unet
+  - solver: heun
   - dataset: mnist
   - generation: mnist_default
   - _self_

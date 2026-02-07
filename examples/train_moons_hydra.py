@@ -23,7 +23,7 @@ from tinyflow.path.scheduler import (
     LinearVarPresScheduler,
     PolynomialScheduler,
 )
-from tinyflow.solver import RK4
+from tinyflow.solver import DDIM, Euler, Heun, MidpointSolver, RK4
 from tinyflow.utils import preprocess_time_moons, visualize_moons
 
 plt.style.use("ggplot")
@@ -96,6 +96,23 @@ def create_lr_scheduler(cfg: DictConfig, optimizer):
         raise ValueError(f"Unknown LR scheduler type: {scheduler_type}")
 
     return base_scheduler
+
+
+def create_solver(cfg: DictConfig, model, preprocess_hook):
+    """Create ODE solver from config."""
+    solver_type = cfg.solver.type
+    if solver_type == "euler":
+        return Euler(model, preprocess_hook=preprocess_hook)
+    if solver_type == "heun":
+        return Heun(model, preprocess_hook=preprocess_hook)
+    if solver_type == "midpoint":
+        return MidpointSolver(model, preprocess_hook=preprocess_hook)
+    if solver_type == "rk4":
+        return RK4(model, preprocess_hook=preprocess_hook)
+    if solver_type == "ddim":
+        eta = cfg.solver.get("eta", 0.0)
+        return DDIM(model, preprocess_hook=preprocess_hook, eta=eta)
+    raise ValueError(f"Unknown solver type: {solver_type}")
 
 
 def create_model(cfg: DictConfig):

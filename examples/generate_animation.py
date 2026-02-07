@@ -24,7 +24,7 @@ def generate_animation(
     dataset: str = "mnist",
     grid_size: int = 3,
     num_steps: int = 100,
-    num_frames: int = 20,
+    num_frames: int = 50,
     fps: int = 10,
     seed: int = 42,
 ):
@@ -64,46 +64,54 @@ def generate_animation(
 
     # Determine which steps to capture
     capture_steps = np.linspace(0, num_steps - 1, num_frames, dtype=int)
-    frames = []
+    snapshots = []  # (step_index, numpy_array) pairs
 
-    # Solve ODE and capture frames
+    # Capture the initial noise as the first frame
+    snapshots.append((0, x.numpy().copy()))
+
+    # Solve ODE and capture intermediate states
     for step in tqdm(range(num_steps), desc="Generating"):
         t = T.zeros(1) + step * h_step
         x = solver.sample(h_step, t, x)
 
-        # Capture frame at specified steps
         if step in capture_steps:
-            x_np = x.numpy()
-            # Normalize for display
-            x_normalized = (x_np - x_np.min()) / (x_np.max() - x_np.min() + 1e-8)
-            x_normalized = np.clip(x_normalized, 0, 1)
+            snapshots.append((step + 1, x.numpy().copy()))
 
-            # Create grid image
-            fig, axes = plt.subplots(grid_size, grid_size, figsize=(8, 8))
-            fig.suptitle(f"t = {step / num_steps:.2f}", fontsize=16, y=0.98)
+    # Compute global min/max across all snapshots for consistent normalization
+    global_min = min(s.min() for _, s in snapshots)
+    global_max = max(s.max() for _, s in snapshots)
 
-            for i in range(grid_size):
-                for j in range(grid_size):
-                    idx = i * grid_size + j
-                    ax = axes[i, j] if grid_size > 1 else axes
+    # Render frames with consistent normalization
+    frames = []
+    for step_idx, x_np in snapshots:
+        x_normalized = (x_np - global_min) / (global_max - global_min + 1e-8)
+        x_normalized = np.clip(x_normalized, 0, 1)
 
-                    if is_color:
-                        img = x_normalized[idx].transpose(1, 2, 0)
-                        ax.imshow(img)
-                    else:
-                        img = x_normalized[idx, 0]
-                        ax.imshow(img, cmap="gray")
+        fig, axes = plt.subplots(grid_size, grid_size, figsize=(8, 8))
+        fig.suptitle(f"t = {step_idx / num_steps:.2f}", fontsize=16, y=0.98)
 
-                    ax.axis("off")
+        for i in range(grid_size):
+            for j in range(grid_size):
+                idx = i * grid_size + j
+                ax = axes[i, j] if grid_size > 1 else axes
 
-            plt.tight_layout()
+                if is_color:
+                    img = x_normalized[idx].transpose(1, 2, 0)
+                    ax.imshow(img)
+                else:
+                    img = x_normalized[idx, 0]
+                    ax.imshow(img, cmap="gray")
 
-            # Convert plot to image
-            fig.canvas.draw()
-            frame = np.frombuffer(fig.canvas.tostring_rgb(), dtype=np.uint8)
-            frame = frame.reshape(fig.canvas.get_width_height()[::-1] + (3,))
-            frames.append(Image.fromarray(frame))
-            plt.close(fig)
+                ax.axis("off")
+
+        plt.tight_layout()
+
+        fig.canvas.draw()
+        data_rgba = np.asarray(fig.canvas.buffer_rgba())
+        frame = data_rgba[..., :3]
+        frame = frame.reshape(fig.canvas.get_width_height()[::-1] + (3,))
+        frames.append(Image.fromarray(frame))
+        plt.close(fig)
 
     # Save as GIF
     output_file = f"generation_{dataset}_{grid_size}x{grid_size}.gif"
@@ -140,7 +148,7 @@ def main():
     )
     parser.add_argument("--grid-size", type=int, default=3, help="Grid size (n×n)")
     parser.add_argument("--num-steps", type=int, default=100, help="Number of ODE steps")
-    parser.add_argument("--num-frames", type=int, default=20, help="Number of frames in animation")
+    parser.add_argument("--num-frames", type=int, default=50, help="Number of frames in animation")
     parser.add_argument("--fps", type=int, default=10, help="Frames per second")
     parser.add_argument("--seed", type=int, default=42, help="Random seed")
 

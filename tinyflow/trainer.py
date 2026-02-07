@@ -176,7 +176,7 @@ class BaseTrainer(ABC):
                 h = 1.0 / num_steps
                 for step in range(num_steps):
                     t = step * h
-                    x = solver.step(x, T.full((current_batch, 1), t), h)
+                    x = solver.step(h, T.full((current_batch, 1), t), x)
 
                 # Clamp to valid range
                 x_np = x.numpy()

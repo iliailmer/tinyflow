@@ -19,8 +19,10 @@ class MidpointSolver(ODESolver):
 
     def step(self, h, t, rhs_prev):
         t1 = self.preprocess_hook(t, rhs_prev)
-        t2 = self.preprocess_hook(t + h / 2, rhs_prev + h / 2 * self.rhs(rhs_prev, t1))
-        return rhs_prev + h * self.rhs(rhs_prev + h / 2 * self.rhs(rhs_prev, t1), t2)
+        k1 = self.rhs(rhs_prev, t1)
+        x_mid = rhs_prev + h / 2 * k1
+        t2 = self.preprocess_hook(t + h / 2, x_mid)
+        return rhs_prev + h * self.rhs(x_mid, t2)
 
     def sample(self, h, t, rhs_prev):
         return self.step(h, t, rhs_prev)

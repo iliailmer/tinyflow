@@ -3,6 +3,7 @@
 defaults:
   - model: unet
   - scheduler: linear
+  - solver: heun
   - optimizer: adam
   - lr_scheduler: none
   - dataset: mnist

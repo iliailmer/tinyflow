@@ -40,7 +40,7 @@ from tqdm import tqdm
 
 from tinyflow.metrics import get_feature_extractor
 from tinyflow.nn import UNetTinygrad
-from tinyflow.solver import Heun
+from tinyflow.solver import DDIM, Euler, Heun, MidpointSolver, RK4
 from tinyflow.trainer import BaseTrainer
 from tinyflow.utils import preprocess_time_cifar, preprocess_time_mnist
 
@@ -87,6 +87,23 @@ def create_model(cfg: DictConfig):
         if "cifar" in dataset_type:
             return UNetTinygrad(3, 3)
     raise ValueError(f"Unknown model type: {model_type}")
+
+
+def create_solver(cfg: DictConfig, model, preprocess_hook):
+    """Create ODE solver from config."""
+    solver_type = cfg.solver.type
+    if solver_type == "euler":
+        return Euler(model, preprocess_hook=preprocess_hook)
+    if solver_type == "heun":
+        return Heun(model, preprocess_hook=preprocess_hook)
+    if solver_type == "midpoint":
+        return MidpointSolver(model, preprocess_hook=preprocess_hook)
+    if solver_type == "rk4":
+        return RK4(model, preprocess_hook=preprocess_hook)
+    if solver_type == "ddim":
+        eta = cfg.solver.get("eta", 0.0)
+        return DDIM(model, preprocess_hook=preprocess_hook, eta=eta)
+    raise ValueError(f"Unknown solver type: {solver_type}")
 
 
 def get_dataset_config(cfg: DictConfig):
@@ -460,7 +477,7 @@ def main_impl(cfg: DictConfig):
     dataset_config = get_dataset_config(cfg)
 
     # Create solver
-    solver = Heun(model, preprocess_hook=dataset_config["preprocess_hook"])
+    solver = create_solver(cfg, model, dataset_config["preprocess_hook"])
 
     # Generate samples
     if animated:

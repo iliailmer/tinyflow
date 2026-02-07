@@ -2,6 +2,7 @@
 
 defaults:
   - model: neural_network
+  - solver: rk4
   - dataset: moons
   - generation: moons_default
   - _self_
