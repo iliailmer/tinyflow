@@ -86,7 +86,7 @@ class UNetMNIST(BaseNeuralNetwork):
 
     def __init__(self, in_channels: int = 1, out_channels: int = 1):
         super().__init__()
-        self.time_embed = SinusoidalTimeEmbedding(32)
+        self.time_embed = SinusoidalTimeEmbedding(64)  # Increased from 32
 
         self.enc1 = ConvBlock(in_channels + self.time_embed.dim, 32)
         self.enc2 = ConvBlock(32, 64)
@@ -145,7 +145,7 @@ class UNetCIFAR10(BaseNeuralNetwork):
 
     def __init__(self, in_channels: int = 3, out_channels: int = 3):
         super().__init__()
-        self.time_embed = SinusoidalTimeEmbedding(32)
+        self.time_embed = SinusoidalTimeEmbedding(64)  # Increased from 32
 
         self.enc1 = ConvBlock(in_channels + self.time_embed.dim, 32)
         self.enc2 = ConvBlock(32, 64)
@@ -192,73 +192,70 @@ class UNetCIFAR10(BaseNeuralNetwork):
 
 class UNetCIFAR10Large(BaseNeuralNetwork):
     """
-    Large U-Net optimized for high-quality CIFAR-10 generation.
+    Medium U-Net for CIFAR-10 - balanced quality and memory usage.
 
     Improvements over base UNetCIFAR10:
-    - 2x channel capacity: [64, 128, 256, 512, 1024] (vs [32, 64, 128, 256, 512])
-    - Larger time embedding: 128-dim (vs 32-dim)
-    - Multiple conv blocks per level: 2 blocks (vs 1)
-    - Self-attention at 8x8 and 4x4 resolutions
-    - Better gradient flow and feature extraction
+    - 1.5x channel capacity: [48, 96, 192, 384, 768] (vs [32, 64, 128, 256, 512])
+    - Larger time embedding: 96-dim (vs 64-dim)
+    - 2 conv blocks per level (vs 1) for better feature extraction
+    - Strategic attention: bottleneck (4x4) + one decoder level (8x8)
+    - Fewer attention heads (4 vs 8) to reduce memory
 
-    Model size: ~80MB (vs ~17MB for base)
-    Memory: Fits comfortably on RTX 5070 (16GB VRAM)
+    Model size: ~50MB (vs ~20MB for base)
+    Memory: Balanced - attention only at low resolutions (cheap!)
     """
 
     def __init__(self, in_channels: int = 3, out_channels: int = 3):
         super().__init__()
-        # Larger time embedding for richer temporal information
-        self.time_embed = SinusoidalTimeEmbedding(128)
+        # Medium time embedding
+        self.time_embed = SinusoidalTimeEmbedding(96)
 
         # Encoder: 2 conv blocks per level for better feature extraction
-        # Level 1: 32x32 -> 32x32 (64 channels)
-        self.enc1a = ConvBlock(in_channels + self.time_embed.dim, 64)
-        self.enc1b = ConvBlock(64, 64)
+        # Level 1: 32x32 (48 channels)
+        self.enc1a = ConvBlock(in_channels + self.time_embed.dim, 48)
+        self.enc1b = ConvBlock(48, 48)
 
-        # Level 2: 16x16 (128 channels)
-        self.enc2a = ConvBlock(64, 128)
-        self.enc2b = ConvBlock(128, 128)
+        # Level 2: 16x16 (96 channels)
+        self.enc2a = ConvBlock(48, 96)
+        self.enc2b = ConvBlock(96, 96)
 
-        # Level 3: 8x8 (256 channels) + self-attention
-        self.enc3a = ConvBlock(128, 256)
-        self.enc3b = ConvBlock(256, 256)
-        self.attn3 = SelfAttention(256, num_heads=8)
+        # Level 3: 8x8 (192 channels)
+        self.enc3a = ConvBlock(96, 192)
+        self.enc3b = ConvBlock(192, 192)
 
-        # Level 4: 4x4 (512 channels) + self-attention
-        self.enc4a = ConvBlock(256, 512)
-        self.enc4b = ConvBlock(512, 512)
-        self.attn4 = SelfAttention(512, num_heads=8)
+        # Level 4: 4x4 (384 channels)
+        self.enc4a = ConvBlock(192, 384)
+        self.enc4b = ConvBlock(384, 384)
 
-        # Bottleneck: 4x4 (1024 channels) + self-attention
-        self.bottleneck_a = ConvBlock(512, 1024)
-        self.bottleneck_b = ConvBlock(1024, 1024)
-        self.attn_bn = SelfAttention(1024, num_heads=8)
+        # Bottleneck: 4x4 (768 channels) + attention
+        self.bottleneck_a = ConvBlock(384, 768)
+        self.bottleneck_b = ConvBlock(768, 768)
+        self.attn_bn = SelfAttention(768, num_heads=4)  # 4x4 is cheap!
 
         # Decoder: 2 conv blocks per level with skip connections
-        # Level 4: 4x4 -> 8x8 (512 channels)
-        self.dec4 = ConvTransposeBlock(1024 + 512, 512)  # 4 -> 8
-        self.dec4a = ConvBlock(512, 512)
-        self.dec4b = ConvBlock(512, 512)
-        self.attn_dec4 = SelfAttention(512, num_heads=8)
+        # Level 4: 4x4 -> 8x8 (384 channels) + attention
+        self.dec4 = ConvTransposeBlock(768 + 384, 384)
+        self.dec4a = ConvBlock(384, 384)
+        self.dec4b = ConvBlock(384, 384)
+        self.attn_dec4 = SelfAttention(384, num_heads=4)  # 8x8 still reasonable
 
-        # Level 3: 8x8 -> 16x16 (256 channels)
-        self.dec3 = ConvTransposeBlock(512 + 256, 256)  # 8 -> 16
-        self.dec3a = ConvBlock(256, 256)
-        self.dec3b = ConvBlock(256, 256)
-        self.attn_dec3 = SelfAttention(256, num_heads=8)
+        # Level 3: 8x8 -> 16x16 (192 channels) - no attention (16x16 gets expensive)
+        self.dec3 = ConvTransposeBlock(384 + 192, 192)
+        self.dec3a = ConvBlock(192, 192)
+        self.dec3b = ConvBlock(192, 192)
 
-        # Level 2: 16x16 -> 32x32 (128 channels)
-        self.dec2 = ConvTransposeBlock(256 + 128, 128)  # 16 -> 32
-        self.dec2a = ConvBlock(128, 128)
-        self.dec2b = ConvBlock(128, 128)
+        # Level 2: 16x16 -> 32x32 (96 channels)
+        self.dec2 = ConvTransposeBlock(192 + 96, 96)
+        self.dec2a = ConvBlock(96, 96)
+        self.dec2b = ConvBlock(96, 96)
 
-        # Level 1: 32x32 -> 32x32 (64 channels)
-        self.dec1 = ConvTransposeBlock(128 + 64, 64, stride=1, padding=1, output_padding=0)
-        self.dec1a = ConvBlock(64, 64)
-        self.dec1b = ConvBlock(64, 64)
+        # Level 1: 32x32 -> 32x32 (48 channels)
+        self.dec1 = ConvTransposeBlock(96 + 48, 48, stride=1, padding=1, output_padding=0)
+        self.dec1a = ConvBlock(48, 48)
+        self.dec1b = ConvBlock(48, 48)
 
         # Final output layer
-        self.final_layer = nn.Conv2d(64, out_channels, kernel_size=1)
+        self.final_layer = nn.Conv2d(48, out_channels, kernel_size=1)
 
     def __call__(self, x: Tensor, t: Tensor) -> Tensor:
         """
@@ -277,44 +274,41 @@ class UNetCIFAR10Large(BaseNeuralNetwork):
 
         # Encoder with skip connections
         # Level 1: 32x32
-        e1 = self.enc1b(self.enc1a(x))  # (B, 64, 32, 32)
+        e1 = self.enc1b(self.enc1a(x))  # (B, 48, 32, 32)
 
         # Level 2: 16x16
-        e2 = self.enc2a(e1.max_pool2d((2, 2)))  # (B, 128, 16, 16)
+        e2 = self.enc2a(e1.max_pool2d((2, 2)))  # (B, 96, 16, 16)
         e2 = self.enc2b(e2)
 
-        # Level 3: 8x8 with attention
-        e3 = self.enc3a(e2.max_pool2d((2, 2)))  # (B, 256, 8, 8)
+        # Level 3: 8x8
+        e3 = self.enc3a(e2.max_pool2d((2, 2)))  # (B, 192, 8, 8)
         e3 = self.enc3b(e3)
-        e3 = self.attn3(e3)  # Self-attention
 
-        # Level 4: 4x4 with attention
-        e4 = self.enc4a(e3.max_pool2d((2, 2)))  # (B, 512, 4, 4)
+        # Level 4: 4x4
+        e4 = self.enc4a(e3.max_pool2d((2, 2)))  # (B, 384, 4, 4)
         e4 = self.enc4b(e4)
-        e4 = self.attn4(e4)  # Self-attention
 
         # Bottleneck: 4x4 with attention
-        bn = self.bottleneck_a(e4)  # (B, 1024, 4, 4)
+        bn = self.bottleneck_a(e4)  # (B, 768, 4, 4)
         bn = self.bottleneck_b(bn)
-        bn = self.attn_bn(bn)  # Self-attention
+        bn = self.attn_bn(bn)  # Attention at lowest resolution (cheap!)
 
         # Decoder with skip connections
-        # Level 4: 4x4 -> 8x8
-        d4 = self.dec4(bn.cat(e4, dim=1))  # (B, 512, 8, 8)
+        # Level 4: 4x4 -> 8x8 with attention
+        d4 = self.dec4(bn.cat(e4, dim=1))  # (B, 384, 8, 8)
         d4 = self.dec4b(self.dec4a(d4))
-        d4 = self.attn_dec4(d4)  # Self-attention
+        d4 = self.attn_dec4(d4)  # Attention at 8x8 (still reasonable)
 
-        # Level 3: 8x8 -> 16x16
-        d3 = self.dec3(d4.cat(e3, dim=1))  # (B, 256, 16, 16)
+        # Level 3: 8x8 -> 16x16 (no attention - too expensive)
+        d3 = self.dec3(d4.cat(e3, dim=1))  # (B, 192, 16, 16)
         d3 = self.dec3b(self.dec3a(d3))
-        d3 = self.attn_dec3(d3)  # Self-attention
 
         # Level 2: 16x16 -> 32x32
-        d2 = self.dec2(d3.cat(e2, dim=1))  # (B, 128, 32, 32)
+        d2 = self.dec2(d3.cat(e2, dim=1))  # (B, 96, 32, 32)
         d2 = self.dec2b(self.dec2a(d2))
 
         # Level 1: 32x32 -> 32x32
-        d1 = self.dec1(d2.cat(e1, dim=1))  # (B, 64, 32, 32)
+        d1 = self.dec1(d2.cat(e1, dim=1))  # (B, 48, 32, 32)
         d1 = self.dec1b(self.dec1a(d1))
 
         # Final output

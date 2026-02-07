@@ -9,7 +9,7 @@ training:
   generate_samples: true
   num_plots: 20  # More frequent visualizations
   log_artifacts: true
-  gradient_accumulation_steps: 2  # Effective batch size: 128 * 2 = 256
+  gradient_accumulation_steps: 4  # Effective batch size: 64 * 4 = 256
 
   # FID evaluation settings (optional)
   compute_fid: false  # Set to true if you have FID classifier

@@ -4,7 +4,7 @@ dataset:
   name: cifar10
   type: cifar10
   path: dataset/cifar10/cifar-10-batches-py
-  batch_size: 128  # Larger batch size for CIFAR-10
+  batch_size: 64  # Reduced for large model (RTX 5070)
   shuffle: true
   flatten: false  # CIFAR-10 needs spatial structure (3, 32, 32)
   cache: true  # Cache in memory for fast training (~600MB RAM)

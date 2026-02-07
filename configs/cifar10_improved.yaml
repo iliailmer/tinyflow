@@ -1,9 +1,9 @@
 # @package _global_
 # High-quality CIFAR-10 training configuration
-# Uses large UNet with self-attention, cosine LR schedule, and extended training
+# Uses medium UNet (1.5x channels, 2 blocks/level), cosine LR schedule, extended training
 
 defaults:
-  - model: unet_large  # Large model with self-attention
+  - model: unet_large  # Medium model (unet_large name kept for compatibility)
   - scheduler: linear  # Flow matching path scheduler
   - solver: rk4  # 4th order Runge-Kutta (best quality)
   - optimizer: adam

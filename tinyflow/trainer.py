@@ -227,7 +227,7 @@ class MNISTTrainer(BaseTrainer):
 
             # Scale loss by accumulation steps for proper gradient averaging
             loss = self.loss_fn(out, dx_t) / self.gradient_accumulation_steps
-            loss.backward()
+            loss.backward()  # Compute gradients
 
             loss_value = loss.item() * self.gradient_accumulation_steps  # Un-scale for logging
             mean_loss_per_epoch += loss_value
@@ -237,7 +237,7 @@ class MNISTTrainer(BaseTrainer):
 
             # Step optimizer when accumulation is complete
             if self.accumulation_step >= self.gradient_accumulation_steps:
-                self.optim.step()
+                self.optim.step()  # Already realizes internally
                 self.accumulation_step = 0
 
                 # Step learning rate scheduler per optimizer step
@@ -298,7 +298,7 @@ class CIFAR10Trainer(BaseTrainer):
 
             # Scale loss by accumulation steps for proper gradient averaging
             loss = self.loss_fn(out, dx_t) / self.gradient_accumulation_steps
-            loss.backward()
+            loss.backward()  # Compute gradients
 
             loss_value = loss.item() * self.gradient_accumulation_steps  # Un-scale for logging
             mean_loss_per_epoch += loss_value
@@ -308,7 +308,7 @@ class CIFAR10Trainer(BaseTrainer):
 
             # Step optimizer when accumulation is complete
             if self.accumulation_step >= self.gradient_accumulation_steps:
-                self.optim.step()
+                self.optim.step()  # Already realizes internally
                 self.accumulation_step = 0
 
                 # Step learning rate scheduler per optimizer step
