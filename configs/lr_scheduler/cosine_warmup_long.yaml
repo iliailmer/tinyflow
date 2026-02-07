@@ -1,0 +1,12 @@
+# @package _global_
+# Optimized for 300-epoch CIFAR-10 training with large model
+
+lr_scheduler:
+  type: "WarmupScheduler"
+  warmup_steps: 1000  # 1000 steps warmup (~8 epochs)
+  warmup_start_lr: 0.00001  # Start very small
+  base_scheduler:
+    type: "CosineAnnealingLR"
+    t_max: 12000  # Cosine cycle length (adjust based on total training steps)
+    eta_min: 0.00001  # End with small but non-zero LR
+    warm: false

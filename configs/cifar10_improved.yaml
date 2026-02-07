@@ -1,0 +1,29 @@
+# @package _global_
+# High-quality CIFAR-10 training configuration
+# Uses large UNet with self-attention, cosine LR schedule, and extended training
+
+defaults:
+  - model: unet_large  # Large model with self-attention
+  - scheduler: linear  # Flow matching path scheduler
+  - solver: rk4  # 4th order Runge-Kutta (best quality)
+  - optimizer: adam
+  - lr_scheduler: cosine_warmup_long  # Warmup + cosine decay
+  - dataset: cifar10
+  - training: cifar10_improved  # Extended training config
+  - _self_
+
+# MLflow tracking settings
+mlflow:
+  experiment_name: "flow_matching_cifar10_improved"
+  tracking_uri: "sqlite:///mlflow.db"
+  log_models: true
+  log_artifacts: true
+
+# Random seed for reproducibility
+seed: 42
+
+# Output directory for artifacts
+output_dir: "outputs/${now:%Y-%m-%d}/${now:%H-%M-%S}"
+
+# Model name override
+model_name: "model_cifar10_unet_large_linear.safetensors"

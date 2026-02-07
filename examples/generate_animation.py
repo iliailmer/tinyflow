@@ -17,7 +17,7 @@ from tinygrad import TinyJit
 from tinygrad.tensor import Tensor as T
 from tqdm import tqdm
 
-from tinyflow.nn import UNetTinygrad
+from tinyflow.nn import UNetCIFAR10Large, UNetTinygrad
 from tinyflow.solver import RK4
 from tinyflow.utils import preprocess_time_cifar, preprocess_time_mnist
 
@@ -25,6 +25,7 @@ from tinyflow.utils import preprocess_time_cifar, preprocess_time_mnist
 def generate_animation(
     model_path: str,
     dataset: str = "mnist",
+    model_type: str = "unet",
     grid_size: int = 3,
     num_steps: int = 100,
     num_frames: int = 50,
@@ -40,8 +41,16 @@ def generate_animation(
 
     # Load model
     print(f"Loading model from {model_path}...")
-    model = UNetTinygrad()
     from tinyflow.trainer import BaseTrainer
+
+    if model_type == "unet":
+        model = UNetTinygrad()
+    elif model_type == "unet_large":
+        if dataset != "cifar10":
+            raise ValueError("unet_large only supports cifar10")
+        model = UNetCIFAR10Large()
+    else:
+        raise ValueError(f"Unknown model type: {model_type}")
 
     BaseTrainer.load_model(model, model_path)
 
@@ -218,6 +227,13 @@ def main():
         choices=["mnist", "fashion_mnist", "cifar10"],
         help="Dataset type",
     )
+    parser.add_argument(
+        "--model-type",
+        type=str,
+        default="unet",
+        choices=["unet", "unet_large"],
+        help="Model architecture type",
+    )
     parser.add_argument("--grid-size", type=int, default=3, help="Grid size (n×n)")
     parser.add_argument("--num-steps", type=int, default=100, help="Number of ODE steps")
     parser.add_argument("--num-frames", type=int, default=50, help="Number of frames in animation")
@@ -239,6 +255,7 @@ def main():
     generate_animation(
         model_path=args.model,
         dataset=args.dataset,
+        model_type=args.model_type,
         grid_size=args.grid_size,
         num_steps=args.num_steps,
         num_frames=args.num_frames,
