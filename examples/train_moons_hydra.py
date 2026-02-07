@@ -234,7 +234,7 @@ def main(cfg: DictConfig):
         h_step = cfg.training.step_size
         time_grid = T.linspace(0, 1, int(1 / h_step))
 
-        solver = RK4(model, preprocess_hook=preprocess_time_moons)
+        solver = create_solver(cfg, model, preprocess_time_moons)
         visualize_moons(
             x,
             solver=solver,
