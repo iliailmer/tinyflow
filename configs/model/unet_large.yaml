@@ -1,0 +1,5 @@
+# @package _global_
+
+model:
+  name: "UNetCIFAR10Large"
+  type: "unet_large"

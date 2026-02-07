@@ -1,0 +1,17 @@
+# @package _global_
+
+training:
+  num_epochs: 300  # 3x longer than default (100 epochs)
+  step_size: 0.01  # 100 ODE steps for high-quality inference (vs 20 steps)
+  n_samples: 9  # Generate 3x3 grid of samples
+  log_interval: 10  # Log every 10 epochs
+  save_model: true
+  generate_samples: true
+  num_plots: 20  # More frequent visualizations
+  log_artifacts: true
+  gradient_accumulation_steps: 2  # Effective batch size: 128 * 2 = 256
+
+  # FID evaluation settings (optional)
+  compute_fid: false  # Set to true if you have FID classifier
+  fid_interval: 50  # Evaluate every 50 epochs
+  fid_num_samples: 1000  # 1000 samples for FID
