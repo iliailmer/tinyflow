@@ -1,5 +1,3 @@
-# TODO: https://arxiv.org/pdf/2105.05233 <- this architecture
-
 from loguru import logger
 from tinygrad import nn
 from tinygrad.tensor import Tensor
