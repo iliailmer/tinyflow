@@ -4,6 +4,8 @@ Generate an animated GIF showing the flow matching generation process.
 Usage:
     uv run examples/generate_animation.py --model model.safetensors --dataset mnist --grid-size 3
     uv run examples/generate_animation.py --model model.safetensors --dataset fashion_mnist --grid-size 4 --fps 10
+    uv run examples/generate_animation.py --model model.safetensors --dataset mnist --per-frame-norm  # Show noise structure
+    uv run examples/generate_animation.py --model model.safetensors --dataset mnist --show-distribution  # Show distribution evolution
 """
 
 import argparse
@@ -28,6 +30,8 @@ def generate_animation(
     num_frames: int = 50,
     fps: int = 10,
     seed: int = 42,
+    per_frame_norm: bool = False,
+    show_distribution: bool = False,
 ):
     """Generate an animated GIF of the generation process."""
 
@@ -85,23 +89,54 @@ def generate_animation(
             x.realize()
             snapshots.append((step + 1, x.numpy().copy()))
 
-    # Compute global min/max across all snapshots for consistent normalization
-    global_min = min(s.min() for _, s in snapshots)
-    global_max = max(s.max() for _, s in snapshots)
+    # Compute normalization parameters
+    if per_frame_norm:
+        print("Using per-frame normalization (shows noise structure)")
+        global_min = global_max = None
+    else:
+        print("Using global normalization (consistent brightness)")
+        global_min = min(s.min() for _, s in snapshots)
+        global_max = max(s.max() for _, s in snapshots)
 
-    # Render frames with consistent normalization
+    # Store raw snapshots for distribution visualization
+    if show_distribution:
+        initial_raw = snapshots[0][1]  # Raw initial noise
+        final_raw = snapshots[-1][1]  # Raw final images
+
+    # Render frames
     frames = []
     for step_idx, x_np in snapshots:
-        x_normalized = (x_np - global_min) / (global_max - global_min + 1e-8)
+        if per_frame_norm:
+            # Normalize each frame independently
+            frame_min = x_np.min()
+            frame_max = x_np.max()
+            x_normalized = (x_np - frame_min) / (frame_max - frame_min + 1e-8)
+        else:
+            # Normalize all frames to same global scale
+            x_normalized = (x_np - global_min) / (global_max - global_min + 1e-8)
+
         x_normalized = np.clip(x_normalized, 0, 1)
 
-        fig, axes = plt.subplots(grid_size, grid_size, figsize=(8, 8))
+        # Create figure with optional distribution panel
+        if show_distribution:
+            fig = plt.figure(figsize=(12, 8))
+            # Image grid takes left 2/3
+            gs = fig.add_gridspec(grid_size, grid_size + 1, width_ratios=[1] * grid_size + [0.5])
+            axes = [[fig.add_subplot(gs[i, j]) for j in range(grid_size)] for i in range(grid_size)]
+            # Distribution plot takes right 1/3
+            ax_dist = fig.add_subplot(gs[:, -1])
+        else:
+            fig, axes = plt.subplots(grid_size, grid_size, figsize=(8, 8))
+            if grid_size == 1:
+                axes = [[axes]]
+
         fig.suptitle(f"t = {step_idx / num_steps:.2f}", fontsize=16, y=0.98)
 
+        # Render image grid
         for i in range(grid_size):
             for j in range(grid_size):
                 idx = i * grid_size + j
-                ax = axes[i, j] if grid_size > 1 else axes
+                ax = axes[i][j]
 
                 if is_color:
                     img = x_normalized[idx].transpose(1, 2, 0)
@@ -111,6 +146,35 @@ def generate_animation(
                     ax.imshow(img, cmap="gray")
 
                 ax.axis("off")
+
+        # Add distribution visualization
+        if show_distribution:
+            ax_dist.clear()
+
+            # Plot histograms of raw pixel values (before normalization)
+            initial_flat = initial_raw.flatten()
+            final_flat = final_raw.flatten()
+            current_flat = x_np.flatten()
+
+            # Compute common bins for consistent visualization
+            all_values = np.concatenate([initial_flat, final_flat, current_flat])
+            bins = np.linspace(all_values.min(), all_values.max(), 50)
+
+            # Plot reference distributions with transparency
+            ax_dist.hist(initial_flat, bins=bins, alpha=0.3, color='blue',
+                        label=f't=0.00 (noise)', density=True)
+            ax_dist.hist(final_flat, bins=bins, alpha=0.3, color='green',
+                        label=f't=1.00 (data)', density=True)
+
+            # Plot current distribution prominently
+            ax_dist.hist(current_flat, bins=bins, alpha=0.7, color='red',
+                        label=f't={step_idx / num_steps:.2f}', density=True)
+
+            ax_dist.set_xlabel('Pixel Value')
+            ax_dist.set_ylabel('Density')
+            ax_dist.set_title('Distribution Evolution')
+            ax_dist.legend(fontsize=8)
+            ax_dist.grid(True, alpha=0.3)
 
         plt.tight_layout()
 
@@ -159,6 +223,16 @@ def main():
     parser.add_argument("--num-frames", type=int, default=50, help="Number of frames in animation")
     parser.add_argument("--fps", type=int, default=10, help="Frames per second")
     parser.add_argument("--seed", type=int, default=42, help="Random seed")
+    parser.add_argument(
+        "--per-frame-norm",
+        action="store_true",
+        help="Use per-frame normalization to show noise structure (vs global normalization)",
+    )
+    parser.add_argument(
+        "--show-distribution",
+        action="store_true",
+        help="Add histogram showing evolution of pixel value distribution",
+    )
 
     args = parser.parse_args()
 
@@ -170,6 +244,8 @@ def main():
         num_frames=args.num_frames,
         fps=args.fps,
         seed=args.seed,
+        per_frame_norm=args.per_frame_norm,
+        show_distribution=args.show_distribution,
     )
 
 
