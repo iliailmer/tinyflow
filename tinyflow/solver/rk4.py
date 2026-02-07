@@ -37,4 +37,7 @@ class RK4(ODESolver):
 
         t4 = self.preprocess_hook(t + h, rhs_prev + k3 * h)
         k4 = self.rhs(rhs_prev + k3 * h, t4)
-        return rhs_prev + h / 6 * (k1 + k2 * 2 + k3 * 2 + k4)
+        result = rhs_prev + h / 6 * (k1 + k2 * 2 + k3 * 2 + k4)
+        # Force computation and clear lazy evaluation graph
+        result.realize()
+        return result

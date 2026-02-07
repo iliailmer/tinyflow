@@ -11,6 +11,7 @@ import argparse
 
 import matplotlib.pyplot as plt
 import numpy as np
+from tinygrad import TinyJit
 from tinygrad.tensor import Tensor as T
 
 from tinyflow.nn import UNetTinygrad
@@ -59,10 +60,18 @@ def generate_grid(
     x = T.randn(*shape)
     h_step = 1.0 / num_steps
 
+    # JIT compile the solver step for better performance
+    @TinyJit
+    def jit_step(h, t, x):
+        return solver.sample(h, t, x)
+
     # Solve ODE from t=0 to t=1
     for step in range(num_steps):
-        t = T.zeros(1) + step * h_step
-        x = solver.sample(h_step, t, x)
+        t = (T.zeros(1) + step * h_step).contiguous()
+        x = jit_step(h_step, t, x)
+
+    # Ensure final result is realized before conversion
+    x.realize()
 
     # Convert to numpy and normalize
     x_np = x.numpy()

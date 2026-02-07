@@ -278,6 +278,9 @@ def generate_static_grid(cfg: DictConfig, model, solver, dataset_config):
         t = (T.zeros(1) + step * h_step).contiguous()
         x = jit_step(h_step, t, x)
 
+    # Ensure final result is realized before conversion
+    x.realize()
+
     # Convert to numpy and normalize
     x_np = x.numpy()
     x_np = (x_np - x_np.min()) / (x_np.max() - x_np.min() + 1e-8)
@@ -376,6 +379,8 @@ def generate_animation(cfg: DictConfig, model, solver, dataset_config):
 
         # Capture frame at specified steps
         if step in capture_steps:
+            # Ensure tensor is realized before capturing to avoid memory accumulation
+            x.realize()
             x_np = x.numpy()
             x_normalized = (x_np - x_np.min()) / (x_np.max() - x_np.min() + 1e-8)
             x_normalized = np.clip(x_normalized, 0, 1)

@@ -11,6 +11,7 @@ import argparse
 import matplotlib.pyplot as plt
 import numpy as np
 from PIL import Image
+from tinygrad import TinyJit
 from tinygrad.tensor import Tensor as T
 from tqdm import tqdm
 
@@ -69,12 +70,19 @@ def generate_animation(
     # Capture the initial noise as the first frame
     snapshots.append((0, x.numpy().copy()))
 
+    # JIT compile the solver step for better performance
+    @TinyJit
+    def jit_step(h, t, x):
+        return solver.sample(h, t, x)
+
     # Solve ODE and capture intermediate states
     for step in tqdm(range(num_steps), desc="Generating"):
-        t = T.zeros(1) + step * h_step
-        x = solver.sample(h_step, t, x)
+        t = (T.zeros(1) + step * h_step).contiguous()
+        x = jit_step(h_step, t, x)
 
         if step in capture_steps:
+            # Ensure tensor is realized before capturing to avoid memory accumulation
+            x.realize()
             snapshots.append((step + 1, x.numpy().copy()))
 
     # Compute global min/max across all snapshots for consistent normalization
