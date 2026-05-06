@@ -35,12 +35,13 @@ import numpy as np
 from omegaconf import DictConfig, OmegaConf
 from PIL import Image
 from tinygrad import TinyJit
+from tinygrad.nn.state import safe_load
 from tinygrad.tensor import Tensor as T
 from tqdm import tqdm
 
 from tinyflow.metrics import get_feature_extractor
 from tinyflow.nn import UNetTinygrad
-from tinyflow.solver import DDIM, Euler, Heun, MidpointSolver, RK4
+from tinyflow.solver import DDIM, RK4, Euler, Heun, MidpointSolver
 from tinyflow.trainer import BaseTrainer
 from tinyflow.utils import preprocess_time_cifar, preprocess_time_mnist
 
@@ -76,16 +77,31 @@ CLASS_NAMES = {
 }
 
 
+def _detect_time_embed_dim(model_path: str, in_channels: int) -> int:
+    """Detect time_embed_dim from saved weights by inspecting enc1.conv.weight shape."""
+    try:
+        state = safe_load(model_path)
+        key = "enc1.conv.weight"
+        if key in state:
+            return int(state[key].shape[1]) - in_channels
+    except Exception:
+        pass
+    return 64  # default
+
+
 def create_model(cfg: DictConfig):
     """Create model from config."""
     model_type = cfg.model.type
     dataset_type = cfg.dataset.get("type", cfg.dataset.name)
+    model_path = cfg.generation.model_path
 
     if model_type == "unet":
         if "mnist" in dataset_type:
-            return UNetTinygrad()
+            time_embed_dim = _detect_time_embed_dim(model_path, in_channels=1)
+            return UNetTinygrad(time_embed_dim=time_embed_dim)
         if "cifar" in dataset_type:
-            return UNetTinygrad(3, 3)
+            time_embed_dim = _detect_time_embed_dim(model_path, in_channels=3)
+            return UNetTinygrad(3, 3, time_embed_dim=time_embed_dim)
     raise ValueError(f"Unknown model type: {model_type}")
 
 

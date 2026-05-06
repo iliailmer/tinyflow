@@ -84,9 +84,9 @@ class UNetMNIST(BaseNeuralNetwork):
     - Skip connections (standard U-Net)
     """
 
-    def __init__(self, in_channels: int = 1, out_channels: int = 1):
+    def __init__(self, in_channels: int = 1, out_channels: int = 1, time_embed_dim: int = 64):
         super().__init__()
-        self.time_embed = SinusoidalTimeEmbedding(64)  # Increased from 32
+        self.time_embed = SinusoidalTimeEmbedding(time_embed_dim)
 
         self.enc1 = ConvBlock(in_channels + self.time_embed.dim, 32)
         self.enc2 = ConvBlock(32, 64)

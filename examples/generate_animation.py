@@ -44,7 +44,16 @@ def generate_animation(
     from tinyflow.trainer import BaseTrainer
 
     if model_type == "unet":
-        model = UNetTinygrad()
+        from tinygrad.nn.state import safe_load as _safe_load
+
+        _state = _safe_load(model_path)
+        _in_ch = 1 if dataset in ["mnist", "fashion_mnist"] else 3
+        _time_embed_dim = (
+            int(_state["enc1.conv.weight"].shape[1]) - _in_ch
+            if "enc1.conv.weight" in _state
+            else 64
+        )
+        model = UNetTinygrad(time_embed_dim=_time_embed_dim)
     elif model_type == "unet_large":
         if dataset != "cifar10":
             raise ValueError("unet_large only supports cifar10")
@@ -128,11 +137,15 @@ def generate_animation(
 
         # Create figure with optional distribution panel
         if show_distribution:
-            fig = plt.figure(figsize=(12, 8))
-            # Image grid takes left 2/3
-            gs = fig.add_gridspec(grid_size, grid_size + 1, width_ratios=[1] * grid_size + [0.5])
+            fig = plt.figure(figsize=(14, 8))
+            gs = fig.add_gridspec(
+                grid_size,
+                grid_size + 1,
+                width_ratios=[1] * grid_size + [1.2],
+                wspace=0.3,
+                hspace=0.1,
+            )
             axes = [[fig.add_subplot(gs[i, j]) for j in range(grid_size)] for i in range(grid_size)]
-            # Distribution plot takes right 1/3
             ax_dist = fig.add_subplot(gs[:, -1])
         else:
             fig, axes = plt.subplots(grid_size, grid_size, figsize=(8, 8))
@@ -170,18 +183,31 @@ def generate_animation(
             bins = np.linspace(all_values.min(), all_values.max(), 50)
 
             # Plot reference distributions with transparency
-            ax_dist.hist(initial_flat, bins=bins, alpha=0.3, color='blue',
-                        label=f't=0.00 (noise)', density=True)
-            ax_dist.hist(final_flat, bins=bins, alpha=0.3, color='green',
-                        label=f't=1.00 (data)', density=True)
+            ax_dist.hist(
+                initial_flat,
+                bins=bins,
+                alpha=0.3,
+                color="blue",
+                label="t=0.00 (noise)",
+                density=True,
+            )
+            ax_dist.hist(
+                final_flat, bins=bins, alpha=0.3, color="green", label="t=1.00 (data)", density=True
+            )
 
             # Plot current distribution prominently
-            ax_dist.hist(current_flat, bins=bins, alpha=0.7, color='red',
-                        label=f't={step_idx / num_steps:.2f}', density=True)
+            ax_dist.hist(
+                current_flat,
+                bins=bins,
+                alpha=0.7,
+                color="red",
+                label=f"t={step_idx / num_steps:.2f}",
+                density=True,
+            )
 
-            ax_dist.set_xlabel('Pixel Value')
-            ax_dist.set_ylabel('Density')
-            ax_dist.set_title('Distribution Evolution')
+            ax_dist.set_xlabel("Pixel Value")
+            ax_dist.set_ylabel("Density")
+            ax_dist.set_title("Distribution Evolution")
             ax_dist.legend(fontsize=8)
             ax_dist.grid(True, alpha=0.3)
 
@@ -190,7 +216,6 @@ def generate_animation(
         fig.canvas.draw()
         data_rgba = np.asarray(fig.canvas.buffer_rgba())
         frame = data_rgba[..., :3]
-        frame = frame.reshape(fig.canvas.get_width_height()[::-1] + (3,))
         frames.append(Image.fromarray(frame))
         plt.close(fig)
 

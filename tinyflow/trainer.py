@@ -73,7 +73,7 @@ class BaseTrainer(ABC):
 
     @staticmethod
     def load_model(model: BaseNeuralNetwork, model_path: str = "model.safetensors"):
-        return load_state_dict(model, safe_load(model_path))
+        return load_state_dict(model, safe_load(model_path), strict=False)
 
     @logger.catch(reraise=True)
     def train(self) -> BaseNeuralNetwork:
