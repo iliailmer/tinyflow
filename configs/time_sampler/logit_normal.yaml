@@ -1,0 +1,3 @@
+type: logit_normal
+low: 0.0
+high: 1.0

@@ -31,6 +31,7 @@ import hydra
 import matplotlib.pyplot as plt
 import mlflow
 from _common import create_lr_scheduler, create_scheduler, create_solver, get_preprocess_hook
+from loguru import logger
 from omegaconf import DictConfig, OmegaConf
 from sklearn.datasets import make_moons
 from tinygrad.nn.optim import Adam
@@ -42,6 +43,7 @@ from tinyflow.dataloader import CIFAR10Loader, FashionMNISTLoader, MNISTLoader
 from tinyflow.losses import mse
 from tinyflow.nn import NeuralNetwork, UNetCIFAR10, UNetCIFAR10Large, UNetMNIST
 from tinyflow.path import AffinePath
+from tinyflow.time_sampler import BaseTimeSampler, LogitNormalSampler, UniformTimeSampler
 from tinyflow.trainer import CIFAR10Trainer, MNISTTrainer
 from tinyflow.utils import visualize_moons
 
@@ -108,7 +110,23 @@ def create_dataloader(cfg: DictConfig):
         raise ValueError(f"Unknown dataset type: {dataset_type}")
 
 
-def create_trainer(cfg: DictConfig, model, dataloader, optim, path, lr_scheduler=None):
+def create_time_sampler(cfg: DictConfig) -> BaseTimeSampler:
+    """Create time sampler instance"""
+    time_sampler_type = cfg.time_sampler.get("type")
+    if time_sampler_type == "uniform":
+        low: float = cfg.time_sampler.get("low")
+        high: float = cfg.time_sampler.get("high")
+        return UniformTimeSampler(low, high)
+    if time_sampler_type == "logit_normal":
+        low: float = cfg.time_sampler.get("low")
+        high: float = cfg.time_sampler.get("high")
+        return LogitNormalSampler(low, high)
+    raise ValueError(f"Unknown time sampler: {time_sampler_type}")
+
+
+def create_trainer(
+    cfg: DictConfig, model, time_sampler, dataloader, optim, path, lr_scheduler=None
+):
     """Create trainer from config (image datasets only)."""
     dataset_type = cfg.dataset.get("type", cfg.dataset.name)
     num_epochs = cfg.training.num_epochs
@@ -131,6 +149,7 @@ def create_trainer(cfg: DictConfig, model, dataloader, optim, path, lr_scheduler
         num_epochs=num_epochs,
         log_interval=log_interval,
         lr_scheduler=lr_scheduler,
+        time_sampler=time_sampler,
         gradient_accumulation_steps=gradient_accumulation_steps,
     )
 
@@ -152,6 +171,7 @@ def train_moons(cfg: DictConfig, model_name: str):
     optim = Adam(get_parameters(model), lr=cfg.optimizer.lr)
     lr_scheduler = create_lr_scheduler(cfg, optim)
 
+    time_sampler = create_time_sampler(cfg)
     loss_fn = mse
     losses = []
 
@@ -160,7 +180,7 @@ def train_moons(cfg: DictConfig, model_name: str):
     for iter_idx in pbar:
         x, _ = make_moons(n_samples=cfg.dataset.n_samples, noise=cfg.dataset.noise)
         x_1 = T(x.astype("float32"))  # pyright: ignore
-        t = T.rand(x_1.shape[0], 1) * 0.99  # clamping
+        t = time_sampler.sample(x_1.shape[0], 1)  # T.rand(x_1.shape[0], 1) * 0.99  # clamping
         x_0 = T.randn(*x_1.shape)
         x_t, dx_t = path.sample(x_1=x_1, t=t, x_0=x_0)
         out = model(x_t, t=t)  # pyright: ignore
@@ -184,7 +204,7 @@ def train_moons(cfg: DictConfig, model_name: str):
 
     if cfg.training.get("save_model", True):
         safe_save(get_state_dict(model), model_name)
-        print(f"✓ Model saved to: {model_name}")
+        logger.info(f"✓ Model saved to: {model_name}")
 
     if cfg.training.get("log_artifacts", True):
         output_dir = cfg.get("output_dir", "outputs")
@@ -226,7 +246,8 @@ def train_images(cfg: DictConfig, model_name: str):
     lr_scheduler = create_lr_scheduler(cfg, optim)
 
     dataloader = create_dataloader(cfg)
-    trainer = create_trainer(cfg, model, dataloader, optim, path, lr_scheduler)
+    time_sampler = create_time_sampler(cfg)
+    trainer = create_trainer(cfg, model, time_sampler, dataloader, optim, path, lr_scheduler)
 
     dataset_name = cfg.dataset.get("type", cfg.dataset.name)
     with mlflow.start_run(run_name=dataset_name):
@@ -248,14 +269,14 @@ def train_images(cfg: DictConfig, model_name: str):
 @hydra.main(version_base=None, config_path="../configs", config_name="config")
 def main(cfg: DictConfig):
     """Hydra entry point; dispatches on dataset type."""
-    print("Configuration:")
-    print(OmegaConf.to_yaml(cfg))
+    logger.info("Configuration:")
+    logger.info(OmegaConf.to_yaml(cfg))
 
     if cfg.get("seed"):
         T.manual_seed(cfg.seed)
 
     model_name = cfg.get("model_name", generate_model_name(cfg))
-    print(f"\nModel will be saved as: {model_name}")
+    logger.info(f"\nModel will be saved as: {model_name}")
 
     dataset_type = cfg.dataset.get("type", cfg.dataset.name)
     if dataset_type == "moons":
