@@ -3,7 +3,7 @@
 
 repos:
   - repo: https://github.com/astral-sh/ruff-pre-commit
-    rev: v0.8.4
+    rev: v0.16.0
     hooks:
       # Run the linter
       - id: ruff
@@ -29,18 +29,3 @@ repos:
       - id: end-of-file-fixer
       # Remove trailing whitespace
       - id: trailing-whitespace
-      # Prevent committing to main branch directly (optional - uncomment if desired)
-      # - id: no-commit-to-branch
-      #   args: ['--branch', 'main']
-
-  # Optional: Type checking with pyright (can be slow)
-  # Uncomment if you want type checking on every commit
-  # - repo: https://github.com/RobertCraigie/pyright-python
-  #   rev: v1.1.390
-  #   hooks:
-  #     - id: pyright
-  #       additional_dependencies: [
-  #         'tinygrad>=0.10.0',
-  #         'numpy>=2.2.1',
-  #         'loguru>=0.7.3',
-  #       ]

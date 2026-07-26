@@ -10,8 +10,6 @@ Usage:
 
 import argparse
 import gzip
-import os
-import pickle
 import shutil
 import tarfile
 import urllib.request
