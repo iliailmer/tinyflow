@@ -16,3 +16,5 @@ outputs
 *.md
 *.db
 !README.md
+
+weights/
