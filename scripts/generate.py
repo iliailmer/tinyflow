@@ -1,53 +1,52 @@
 """
-Generate samples from a trained flow matching model for image datasets (MNIST, Fashion MNIST, CIFAR-10).
+Unified generation entry point (Hydra configuration).
+
+Loads a trained flow-matching model and integrates the learned velocity field
+from noise (t=0) to data (t=1). Supports the 2D moons dataset and image
+datasets (MNIST, Fashion MNIST, CIFAR-10).
+
+Note: the scheduler/path used during training is not needed here - the model
+has already learned the velocity field.
 
 Usage:
-    # Generate static grid for MNIST
-    uv run examples/generate_images.py generation.model_path=model_mnist_unet_linear.safetensors
+    # Image datasets (default config base: MNIST)
+    uv run scripts/generate.py generation.model_path=model_mnist_unet_linear.safetensors
+    uv run scripts/generate.py dataset=fashion_mnist generation.model_path=model_fashion_mnist_unet_linear.safetensors
+    uv run scripts/generate.py dataset=cifar10 generation.model_path=model_cifar10_unet_linear.safetensors
 
-    # Generate for Fashion MNIST
-    uv run examples/generate_images.py dataset=fashion_mnist generation.model_path=model_fashion_mnist_unet_linear.safetensors
-
-    # Generate for CIFAR-10
-    uv run examples/generate_images.py dataset=cifar10 generation.model_path=model_cifar10_unet_linear.safetensors
-
-    # Generate with animation
-    uv run examples/generate_images.py generation.model_path=model_mnist_unet_linear.safetensors --animated
-
-    # Generate with class predictions (requires trained FID classifier)
-    uv run examples/generate_images.py generation.model_path=model.safetensors generation.show_predictions=true
-
-    # Generate with FID computation (requires trained FID classifier)
-    uv run examples/generate_images.py generation.model_path=model.safetensors generation.compute_fid=true
-
-    # Generate with both predictions and FID
-    uv run examples/generate_images.py generation.model_path=model.safetensors generation.show_predictions=true generation.compute_fid=true
+    # Animated GIF, class predictions, FID
+    uv run scripts/generate.py generation.model_path=model.safetensors --animated
+    uv run scripts/generate.py generation.model_path=model.safetensors generation.show_predictions=true generation.compute_fid=true
 
     # Override grid size and steps
-    uv run examples/generate_images.py generation.model_path=model.safetensors generation.grid_size=3 generation.num_steps=50
+    uv run scripts/generate.py generation.model_path=model.safetensors generation.grid_size=3 generation.num_steps=50
+
+    # Moons dataset - switch the base config with --config-name
+    uv run scripts/generate.py --config-name=generate_moons_config generation.model_path=model_moons_neural_network_linear.safetensors
+    uv run scripts/generate.py --config-name=generate_moons_config generation.model_path=model.safetensors --animated
 """
 
 import os
+import sys
 
 import hydra
 import matplotlib.pyplot as plt
 import numpy as np
+from _common import create_solver, detect_time_embed_dim
 from omegaconf import DictConfig, OmegaConf
 from PIL import Image
 from tinygrad import TinyJit
-from tinygrad.nn.state import safe_load
 from tinygrad.tensor import Tensor as T
 from tqdm import tqdm
 
 from tinyflow.metrics import get_feature_extractor
-from tinyflow.nn import UNetTinygrad
-from tinyflow.solver import DDIM, RK4, Euler, Heun, MidpointSolver
+from tinyflow.nn import NeuralNetwork, UNetTinygrad
 from tinyflow.trainer import BaseTrainer
-from tinyflow.utils import preprocess_time_cifar, preprocess_time_mnist
+from tinyflow.utils import preprocess_time_cifar, preprocess_time_mnist, preprocess_time_moons
 
 plt.style.use("ggplot")
 
-# Class names for datasets
+# Class names for image datasets
 CLASS_NAMES = {
     "mnist": ["0", "1", "2", "3", "4", "5", "6", "7", "8", "9"],
     "fashion_mnist": [
@@ -77,49 +76,31 @@ CLASS_NAMES = {
 }
 
 
-def _detect_time_embed_dim(model_path: str, in_channels: int) -> int:
-    """Detect time_embed_dim from saved weights by inspecting enc1.conv.weight shape."""
-    try:
-        state = safe_load(model_path)
-        key = "enc1.conv.weight"
-        if key in state:
-            return int(state[key].shape[1]) - in_channels
-    except Exception:
-        pass
-    return 64  # default
-
-
 def create_model(cfg: DictConfig):
-    """Create model from config."""
+    """Create model from config, sized to match the checkpoint being loaded."""
     model_type = cfg.model.type
+    if model_type == "neural_network":
+        return NeuralNetwork(
+            in_dim=cfg.model.input_dim,
+            time_embed_dim=cfg.model.time_embed_dim,
+            out_dim=cfg.model.output_dim,
+        )
+
     dataset_type = cfg.dataset.get("type", cfg.dataset.name)
     model_path = cfg.generation.model_path
-
     if model_type == "unet":
         if "mnist" in dataset_type:
-            time_embed_dim = _detect_time_embed_dim(model_path, in_channels=1)
+            time_embed_dim = detect_time_embed_dim(model_path, in_channels=1)
             return UNetTinygrad(time_embed_dim=time_embed_dim)
         if "cifar" in dataset_type:
-            time_embed_dim = _detect_time_embed_dim(model_path, in_channels=3)
+            time_embed_dim = detect_time_embed_dim(model_path, in_channels=3)
             return UNetTinygrad(3, 3, time_embed_dim=time_embed_dim)
     raise ValueError(f"Unknown model type: {model_type}")
 
 
-def create_solver(cfg: DictConfig, model, preprocess_hook):
-    """Create ODE solver from config."""
-    solver_type = cfg.solver.type
-    if solver_type == "euler":
-        return Euler(model, preprocess_hook=preprocess_hook)
-    if solver_type == "heun":
-        return Heun(model, preprocess_hook=preprocess_hook)
-    if solver_type == "midpoint":
-        return MidpointSolver(model, preprocess_hook=preprocess_hook)
-    if solver_type == "rk4":
-        return RK4(model, preprocess_hook=preprocess_hook)
-    if solver_type == "ddim":
-        eta = cfg.solver.get("eta", 0.0)
-        return DDIM(model, preprocess_hook=preprocess_hook, eta=eta)
-    raise ValueError(f"Unknown solver type: {solver_type}")
+# --------------------------------------------------------------------------
+# Image datasets (MNIST, Fashion MNIST, CIFAR-10)
+# --------------------------------------------------------------------------
 
 
 def get_dataset_config(cfg: DictConfig):
@@ -269,7 +250,7 @@ def classify_images(images_np: np.ndarray, dataset_name: str):
         return None
 
 
-def generate_static_grid(cfg: DictConfig, model, solver, dataset_config):
+def generate_image_grid(cfg: DictConfig, model, solver, dataset_config):
     """Generate a static grid of samples."""
     grid_size = cfg.generation.grid_size
     num_steps = cfg.generation.num_steps
@@ -362,7 +343,7 @@ def generate_static_grid(cfg: DictConfig, model, solver, dataset_config):
         plt.close()
 
 
-def generate_animation(cfg: DictConfig, model, solver, dataset_config):
+def generate_image_animation(cfg: DictConfig, model, solver, dataset_config):
     """Generate an animated GIF of the generation process."""
     grid_size = cfg.generation.grid_size
     num_steps = cfg.generation.num_steps
@@ -471,8 +452,193 @@ def generate_animation(cfg: DictConfig, model, solver, dataset_config):
     print(f"  Duration: {len(frames) / fps:.1f} seconds")
 
 
+def run_image_generation(cfg: DictConfig, animated: bool):
+    """Load an image-dataset model and generate a grid or animation."""
+    model_path = cfg.generation.model_path
+    if not os.path.exists(model_path):
+        raise FileNotFoundError(f"Model file not found: {model_path}")
+
+    print(f"\nLoading model from {model_path}...")
+    model = create_model(cfg)
+    BaseTrainer.load_model(model, model_path)
+
+    # Note: Scheduler/path not needed at generation time - the model has already
+    # learned the velocity field during training
+    dataset_config = get_dataset_config(cfg)
+    solver = create_solver(cfg, model, dataset_config["preprocess_hook"])
+
+    if animated:
+        generate_image_animation(cfg, model, solver, dataset_config)
+    else:
+        generate_image_grid(cfg, model, solver, dataset_config)
+
+
+# --------------------------------------------------------------------------
+# Moons (2D toy dataset)
+# --------------------------------------------------------------------------
+
+
+def generate_moons_grid(cfg: DictConfig, solver):
+    """Generate static visualization with multiple time snapshots."""
+    n_samples = cfg.generation.n_samples
+    num_steps = cfg.generation.num_steps
+    step_size = cfg.generation.step_size
+    num_plots = cfg.generation.num_plots
+
+    print(f"Generating {n_samples} samples with {num_plots} snapshots...")
+
+    # Initialize samples
+    T.training = False
+    x = T.randn(n_samples, 2)
+    time_grid = T.linspace(0, 1, num_steps)
+    sample_every = time_grid.shape[0] // num_plots
+
+    # Store snapshots to visualize
+    snapshots = []
+    snapshot_times = []
+
+    # JIT compile the solver step for better performance
+    @TinyJit
+    def jit_step(step_size, t, x):
+        return solver.sample(step_size, t, x)
+
+    # Generate all samples first
+    for idx in tqdm(range(int(time_grid.shape[0])), desc="Generating samples"):
+        t = time_grid[idx].contiguous()
+        x = jit_step(step_size, t, x)
+
+        # Store reference for visualization
+        if (idx + 1) % sample_every == 0:
+            snapshots.append(x)
+            snapshot_times.append(t)
+
+    # Visualize all snapshots
+    _, ax = plt.subplots(1, num_plots, figsize=(30, 4), sharex=True, sharey=True)
+    for i, (snapshot, t) in enumerate(zip(snapshots, snapshot_times, strict=False)):
+        x_np = snapshot.numpy()
+        ax[i].scatter(x_np[:, 0], x_np[:, 1], s=20, alpha=0.6)
+        ax[i].set_title(f"t={t.numpy():.2f}")
+        ax[i].set_xlim(-3, 3)
+        ax[i].set_ylim(-3, 3)
+        ax[i].grid(True, alpha=0.3)
+
+    plt.tight_layout()
+
+    # Save
+    os.makedirs(cfg.generation.output_dir, exist_ok=True)
+    output_file = os.path.join(cfg.generation.output_dir, "moons_generation.png")
+    plt.savefig(output_file, dpi=150, bbox_inches="tight")
+    print(f"Saved to {output_file}")
+
+    if cfg.generation.get("show_plot", False):
+        plt.show()
+    else:
+        plt.close()
+
+
+def generate_moons_animation(cfg: DictConfig, solver):
+    """Generate an animated GIF of the generation process."""
+    n_samples = cfg.generation.n_samples
+    num_steps = cfg.generation.num_steps
+    step_size = cfg.generation.step_size
+    num_plots = cfg.generation.num_plots
+    fps = cfg.generation.fps
+
+    print(f"Generating {n_samples} samples with {num_plots} frames...")
+
+    # Initialize samples
+    T.training = False
+    x = T.randn(n_samples, 2)
+    time_grid = T.linspace(0, 1, num_steps)
+    sample_every = time_grid.shape[0] // num_plots
+
+    # Store snapshots to visualize
+    snapshots = []
+    snapshot_times = []
+
+    # JIT compile the solver step for better performance
+    @TinyJit
+    def jit_step(step_size, t, x):
+        return solver.sample(step_size, t, x)
+
+    # Generate all samples first
+    for idx in tqdm(range(int(time_grid.shape[0])), desc="Generating animation"):
+        t = time_grid[idx].contiguous()
+        x = jit_step(step_size, t, x)
+
+        # Store reference for visualization
+        if (idx + 1) % sample_every == 0:
+            snapshots.append(x)
+            snapshot_times.append(t)
+
+    # Create frames
+    frames = []
+    for snapshot, t in tqdm(
+        zip(snapshots, snapshot_times, strict=False), desc="Creating frames", total=len(snapshots)
+    ):
+        x_np = snapshot.numpy()
+
+        fig, ax = plt.subplots(figsize=(8, 8))
+        ax.scatter(x_np[:, 0], x_np[:, 1], s=20, alpha=0.6)
+        ax.set_title(f"t = {t.numpy():.2f}", fontsize=16)
+        ax.set_xlim(-3, 3)
+        ax.set_ylim(-3, 3)
+        ax.grid(True, alpha=0.3)
+        ax.set_aspect("equal")
+
+        # Convert plot to image
+        fig.canvas.draw()
+        # Use buffer_rgba() for compatibility across backends
+        buf = fig.canvas.buffer_rgba()
+        frame = np.asarray(buf)
+        # Convert RGBA to RGB
+        frame = frame[:, :, :3]
+        frames.append(Image.fromarray(frame))
+        plt.close(fig)
+
+    # Save as GIF
+    os.makedirs(cfg.generation.output_dir, exist_ok=True)
+    output_file = os.path.join(cfg.generation.output_dir, "moons_generation.gif")
+
+    # Add final frame multiple times to pause at the end
+    frames.extend([frames[-1]] * fps)
+
+    frames[0].save(
+        output_file,
+        save_all=True,
+        append_images=frames[1:],
+        duration=1000 // fps,
+        loop=0,
+    )
+
+    print(f"Animation saved to {output_file}")
+    print(f"  Frames: {len(frames)}")
+    print(f"  FPS: {fps}")
+    print(f"  Duration: {len(frames) / fps:.1f} seconds")
+
+
+def run_moons_generation(cfg: DictConfig, animated: bool):
+    """Load a moons model and generate a static plot or animation."""
+    model_path = cfg.generation.model_path
+    if not os.path.exists(model_path):
+        raise FileNotFoundError(f"Model file not found: {model_path}")
+
+    print(f"\nLoading model from {model_path}...")
+    model = create_model(cfg)
+    BaseTrainer.load_model(model, model_path)
+
+    # Note: Scheduler/path not needed at generation time - the model has already
+    # learned the velocity field during training
+    solver = create_solver(cfg, model, preprocess_time_moons)
+
+    if animated:
+        generate_moons_animation(cfg, solver)
+    else:
+        generate_moons_grid(cfg, solver)
+
+
 def main_impl(cfg: DictConfig):
-    """Main generation function."""
+    """Resolve config, then dispatch to the moons or image generation path."""
     animated = cfg.generation.get("animated", False)
 
     print("Configuration:")
@@ -483,39 +649,20 @@ def main_impl(cfg: DictConfig):
     if cfg.get("seed"):
         T.manual_seed(cfg.seed)
 
-    # Load model
-    model_path = cfg.generation.model_path
-    if not os.path.exists(model_path):
-        raise FileNotFoundError(f"Model file not found: {model_path}")
-
-    print(f"\nLoading model from {model_path}...")
-    model = create_model(cfg)
-    BaseTrainer.load_model(model, model_path)
-
-    # Get dataset configuration
-    # Note: Scheduler/path not needed at generation time - the model has already
-    # learned the velocity field during training
-    dataset_config = get_dataset_config(cfg)
-
-    # Create solver
-    solver = create_solver(cfg, model, dataset_config["preprocess_hook"])
-
-    # Generate samples
-    if animated:
-        generate_animation(cfg, model, solver, dataset_config)
+    dataset_type = cfg.dataset.get("type", cfg.dataset.name)
+    if dataset_type == "moons":
+        run_moons_generation(cfg, animated)
     else:
-        generate_static_grid(cfg, model, solver, dataset_config)
+        run_image_generation(cfg, animated)
 
 
 @hydra.main(version_base=None, config_path="../configs", config_name="generate_config")
 def main(cfg: DictConfig):
-    """Hydra entry point."""
+    """Hydra entry point. Use --config-name=generate_moons_config for the moons dataset."""
     main_impl(cfg)
 
 
 if __name__ == "__main__":
-    import sys
-
     # Check for --animated flag and remove it before Hydra processes args
     animated = "--animated" in sys.argv
     if animated:

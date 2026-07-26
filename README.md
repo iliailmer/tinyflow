@@ -52,37 +52,37 @@ uv sync
 
 ```bash
 # Train on 2D moons dataset (fast, for testing)
-uv run examples/train_moons_hydra.py
+uv run scripts/train.py dataset=moons model=neural_network training=moons_default scheduler=linear
 
 # Train on MNIST
-uv run examples/train_mnist_hydra.py
+uv run scripts/train.py
 
 # Train on Fashion MNIST
-uv run examples/train_mnist_hydra.py dataset=fashion_mnist
+uv run scripts/train.py dataset=fashion_mnist
 
 # Train on CIFAR-10
-uv run examples/train_mnist_hydra.py dataset=cifar10
+uv run scripts/train.py dataset=cifar10 model=unet
 ```
 
 ### Generating Samples
 
 ```bash
 # Generate static grid for MNIST
-uv run examples/generate_images.py generation.model_path=model_mnist_unet_linear.safetensors
+uv run scripts/generate.py generation.model_path=model_mnist_unet_linear.safetensors
 
 # Generate with class predictions and FID score
-uv run examples/generate_images.py \
+uv run scripts/generate.py \
     generation.model_path=model_mnist_unet_linear.safetensors \
     generation.show_predictions=true \
     generation.compute_fid=true
 
 # Generate animated GIF showing the flow process
-uv run examples/generate_images.py \
+uv run scripts/generate.py \
     generation.model_path=model_mnist_unet_linear.safetensors \
     --animated
 
-# Generate for 2D moons dataset
-uv run examples/generate_moons.py generation.model_path=model_moons_neural_network_linear.safetensors
+# Generate for 2D moons dataset (switch the base config)
+uv run scripts/generate.py --config-name=generate_moons_config generation.model_path=model_moons_neural_network_linear.safetensors
 ```
 
 ### Training FID Classifier (for evaluation)
@@ -133,14 +133,16 @@ configs/                       # Hydra configuration files
 ├── training/                  # Training parameters
 └── generation/                # Generation settings
 
-examples/
-├── train_mnist_hydra.py       # MNIST/CIFAR-10 training
-├── train_moons_hydra.py       # 2D moons training
-├── generate_images.py         # Image generation with predictions/FID
-└── generate_moons.py          # 2D moons generation
-
 scripts/
-└── train_fid_classifier.py    # Train FID classifier with validation
+├── train.py                   # Unified training entry point (moons + image datasets)
+├── generate.py                # Unified generation entry point (predictions/FID/animation)
+├── train_fid_classifier.py    # Train FID classifier with validation
+└── download_datasets.py       # Dataset download helper
+
+experiments/                   # ODE-solver and time-schedule research scripts
+├── solver_compare.py          # Compare solvers (Euler/Heun/RK4) at fixed NFE
+├── schedule_compare.py        # Compare uniform vs back-loaded time schedules
+└── curvature_profile.py       # Velocity-field curvature/LTE-proxy profiling
 
 docs/
 ├── MLFLOW_HYDRA_GUIDE.md      # Experiment tracking guide
@@ -155,13 +157,13 @@ This project uses Hydra for flexible configuration management:
 
 ```bash
 # Override specific parameters
-uv run examples/train_mnist_hydra.py scheduler=cosine optimizer.lr=0.001
+uv run scripts/train.py scheduler=cosine optimizer.lr=0.001
 
 # Compare multiple schedulers (multirun)
-uv run examples/train_mnist_hydra.py -m scheduler=linear,cosine,polynomial
+uv run scripts/train.py -m scheduler=linear,cosine,polynomial
 
 # Use experiment configs
-uv run examples/train_moons_hydra.py +experiment=quick_test
+uv run scripts/train.py +experiment=quick_test
 ```
 
 See `docs/MLFLOW_HYDRA_GUIDE.md` for detailed usage.
