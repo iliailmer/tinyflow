@@ -21,7 +21,6 @@ class RK4(ODESolver):
 
     @logger.catch(reraise=True)
     def sample(self, h, t, rhs_prev):
-        # t = self.preprocess_hook(t, rhs_prev)
         return self.step(h, t, rhs_prev)
 
     @logger.catch(reraise=True)
