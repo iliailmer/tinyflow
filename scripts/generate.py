@@ -321,7 +321,7 @@ def generate_image_grid(cfg: DictConfig, model, solver, dataset_config):
 
             # Add prediction label if available
             if predictions is not None:
-                class_idx, class_name, confidence = predictions[idx]
+                _, class_name, confidence = predictions[idx]
                 label = f"{class_name}\n{confidence:.1%}"
                 ax.set_title(label, fontsize=12, pad=4, fontweight="bold")
 
