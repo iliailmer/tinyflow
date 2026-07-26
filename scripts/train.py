@@ -118,9 +118,9 @@ def create_time_sampler(cfg: DictConfig) -> BaseTimeSampler:
         high: float = cfg.time_sampler.get("high")
         return UniformTimeSampler(low, high)
     if time_sampler_type == "logit_normal":
-        low: float = cfg.time_sampler.get("low")
-        high: float = cfg.time_sampler.get("high")
-        return LogitNormalSampler(low, high)
+        mean: float = cfg.time_sampler.get("mean")
+        stddev: float = cfg.time_sampler.get("stddev")
+        return LogitNormalSampler(mean, stddev)
     raise ValueError(f"Unknown time sampler: {time_sampler_type}")
 
 
@@ -159,7 +159,8 @@ def generate_model_name(cfg: DictConfig) -> str:
     dataset = cfg.dataset.get("type", cfg.dataset.name)
     model_type = cfg.model.type
     scheduler = cfg.scheduler.type.replace("Scheduler", "").lower()
-    return f"model_{dataset}_{model_type}_{scheduler}.safetensors"
+    time_sampler = cfg.time_sampler.type.lower()
+    return f"model_{dataset}_{model_type}_ts_{time_sampler}_{scheduler}.safetensors"
 
 
 def train_moons(cfg: DictConfig, model_name: str):
@@ -276,6 +277,7 @@ def main(cfg: DictConfig):
         T.manual_seed(cfg.seed)
 
     model_name = cfg.get("model_name", generate_model_name(cfg))
+    model_name = f"weights/{model_name}"
     logger.info(f"\nModel will be saved as: {model_name}")
 
     dataset_type = cfg.dataset.get("type", cfg.dataset.name)

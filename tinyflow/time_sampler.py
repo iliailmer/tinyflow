@@ -23,9 +23,9 @@ class UniformTimeSampler(BaseTimeSampler):
 
 
 class LogitNormalSampler(BaseTimeSampler):
-    def __init__(self, m: float = 0.0, s: float = 1.0):
-        self.m = m
-        self.s = s
+    def __init__(self, mean: float = 0.0, stddev: float = 1.0):
+        self.m = mean
+        self.s = stddev
 
     @logger.catch(reraise=True)
     def sample(self, *shape) -> Tensor:
