@@ -16,6 +16,7 @@ from tinyflow.dataloader import BaseDataloader
 from tinyflow.nn import BaseNeuralNetwork
 from tinyflow.path import Path
 from tinyflow.solver import ODESolver
+from tinyflow.time_sampler import BaseTimeSampler
 from tinyflow.utils import visualize_cifar10, visualize_mnist
 
 # Import metrics lazily to avoid circular imports
@@ -33,6 +34,7 @@ class BaseTrainer(ABC):
         num_epochs: int = 10_000,
         log_interval: int = 50,
         lr_scheduler=None,
+        time_sampler: BaseTimeSampler | None = None,
         gradient_accumulation_steps: int = 1,
         compute_fid: bool = False,
         fid_interval: int = 50,
@@ -48,6 +50,9 @@ class BaseTrainer(ABC):
         self.num_epochs = num_epochs
         self.log_interval = log_interval
         self.lr_scheduler = lr_scheduler
+        if time_sampler is None:
+            raise ValueError("Time sampler cannot be None")
+        self.time_sampler = time_sampler
         self.gradient_accumulation_steps = gradient_accumulation_steps
         self._losses = []
         self.global_step = 0
@@ -216,7 +221,7 @@ class MNISTTrainer(BaseTrainer):
         for batch in tqdm(self.dataloader, desc=desc):
             x_batch, _ = batch
             x = T(x_batch)
-            t = T.rand(x.shape[0], 1) * 0.99
+            t = self.time_sampler.sample(x.shape[0], 1)
             x_0 = T.randn(*x.shape)
             x_t, dx_t = self.path.sample(x_1=x, t=t, x_0=x_0)
             out = self.model(x_t, t)
@@ -286,7 +291,7 @@ class CIFAR10Trainer(BaseTrainer):
             x_batch, _ = batch
             x = T(x_batch)  # Already float32 from dataloader
 
-            t = T.rand(x.shape[0], 1) * 0.99
+            t = self.time_sampler.sample(x.shape[0], 1)
             x_0 = T.randn(*x.shape)
 
             x_t, dx_t = self.path.sample(x_1=x, t=t, x_0=x_0)
