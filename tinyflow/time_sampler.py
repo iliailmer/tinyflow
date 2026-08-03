@@ -1,3 +1,5 @@
+import math
+
 from loguru import logger
 from tinygrad.tensor import Tensor
 
@@ -32,3 +34,23 @@ class LogitNormalSampler(BaseTimeSampler):
         out: Tensor = self.m + self.s * Tensor.randn(*shape)
         out: Tensor = out.sigmoid()
         return out
+
+
+class ModeHeavyTailSampler(BaseTimeSampler):
+    def __init__(self, scale: float = 0.5):
+        self.s = scale
+
+    def sample(self, *shape) -> Tensor:
+        u = Tensor.rand(*shape)
+        c = (math.pi * u).cos() ** 2
+        return 1 - u - self.s * (c - 1 + u)
+
+
+class CosSampler(BaseTimeSampler):
+    def __init__(self):
+        pass
+
+    def sample(self, *shape) -> Tensor:
+        u = Tensor.rand(*shape)
+        t = 1 - 1 / ((math.pi * u).tan() + 1)
+        return t
