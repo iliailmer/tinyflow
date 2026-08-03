@@ -42,7 +42,7 @@ class ModeHeavyTailSampler(BaseTimeSampler):
 
     def sample(self, *shape) -> Tensor:
         u = Tensor.rand(*shape)
-        c = (math.pi * u).cos() ** 2
+        c = (math.pi / 2 * u).cos() ** 2
         return 1 - u - self.s * (c - 1 + u)
 
 
@@ -52,5 +52,5 @@ class CosSampler(BaseTimeSampler):
 
     def sample(self, *shape) -> Tensor:
         u = Tensor.rand(*shape)
-        t = 1 - 1 / ((math.pi * u).tan() + 1)
+        t = 1 - 1 / ((math.pi / 2 * u).tan() + 1)
         return t
