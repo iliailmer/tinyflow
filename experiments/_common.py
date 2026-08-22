@@ -3,6 +3,7 @@
 import matplotlib.pyplot as plt
 import numpy as np
 from tinygrad.nn.state import safe_load
+from tinygrad.tensor import Tensor as T
 
 
 def detect_time_embed_dim(model_path: str, in_channels: int) -> int:
@@ -43,3 +44,59 @@ def save_grid_figure(x_np: np.ndarray, title: str, path: str, figsize=(4, 4.2)):
     plt.tight_layout()
     plt.savefig(path, dpi=150, bbox_inches="tight")
     plt.close(fig)
+
+
+def per_sample_norm_mean(x: T) -> float:
+    """Mean over the batch of the per-sample L2 norm."""
+    flat = x.reshape(x.shape[0], -1)
+    return ((flat * flat).sum(axis=-1) + 1e-20).sqrt().mean().numpy().item()
+
+
+def normalize_per_sample(x: T) -> T:
+    """Normalizes each sample in the batch to unit L2 norm."""
+    flat = x.reshape(x.shape[0], -1)
+    mag = ((flat * flat).sum(axis=-1) + 1e-20).sqrt()
+    view_shape = (x.shape[0],) + (1,) * (len(x.shape) - 1)
+    return x / mag.reshape(view_shape)
+
+
+def compute_fid_vs_real(
+    generated_np: np.ndarray, dataset_name: str, n_samples: int, weights_dir: str = "weights"
+) -> float | None:
+    """FID of generated images against real images freshly sampled from `dataset_name`."""
+    from tinyflow.dataloader import CIFAR10Loader, FashionMNISTLoader, MNISTLoader
+    from tinyflow.metrics import calculate_fid, get_feature_extractor
+
+    classifier = get_feature_extractor(dataset_name, weights_dir=weights_dir)
+    if not classifier._weights_loaded:
+        print(f"Warning: FID classifier weights not found for {dataset_name}, skipping FID.")
+        return None
+
+    if dataset_name == "mnist":
+        dataloader = MNISTLoader(
+            path="dataset/mnist/trainset/trainingSet/*/*.jpg",
+            batch_size=64,
+            shuffle=True,
+            flatten=False,
+        )
+    elif dataset_name == "fashion_mnist":
+        dataloader = FashionMNISTLoader(
+            path="dataset/fashion_mnist", batch_size=64, shuffle=True, flatten=False, train=True
+        )
+    elif dataset_name == "cifar10":
+        dataloader = CIFAR10Loader(
+            path="dataset/cifar10/cifar-10-batches-py", batch_size=64, shuffle=True, train=True
+        )
+    else:
+        raise ValueError(f"Unknown dataset: {dataset_name}")
+
+    real_images = []
+    collected = 0
+    for batch_images, _ in dataloader:
+        real_images.append(batch_images)
+        collected += len(batch_images)
+        if collected >= n_samples:
+            break
+    real_images = np.concatenate(real_images, axis=0)[:n_samples]
+
+    return calculate_fid(real_images, generated_np, feature_extractor=classifier, batch_size=64)
