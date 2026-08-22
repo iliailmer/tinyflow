@@ -19,7 +19,12 @@ import os
 import matplotlib.pyplot as plt
 import mlflow
 import numpy as np
-from _common import detect_time_embed_dim, schedule_grid
+from _common import (
+    detect_time_embed_dim,
+    normalize_per_sample,
+    per_sample_norm_mean,
+    schedule_grid,
+)
 from tinygrad.tensor import Tensor as T
 from tqdm import tqdm
 
@@ -73,18 +78,6 @@ def build_model(dataset: str, model_path: str):
         return NeuralNetwork(in_dim=2, time_embed_dim=64, out_dim=2)
     in_ch = cfg["in_channels"]
     return UNetTinygrad(in_ch, in_ch, time_embed_dim=detect_time_embed_dim(model_path, in_ch))
-
-
-def per_sample_norm_mean(x: T) -> float:
-    flat = x.reshape(x.shape[0], -1)
-    return ((flat * flat).sum(axis=-1) + 1e-20).sqrt().mean().numpy().item()
-
-
-def normalize_per_sample(x: T) -> T:
-    flat = x.reshape(x.shape[0], -1)
-    mag = ((flat * flat).sum(axis=-1) + 1e-20).sqrt()
-    view_shape = (x.shape[0],) + (1,) * (len(x.shape) - 1)
-    return x / mag.reshape(view_shape)
 
 
 def profile(
