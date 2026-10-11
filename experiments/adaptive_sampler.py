@@ -29,6 +29,7 @@ from _common import (
     save_grid_figure,
     schedule_grid,
 )
+from tinygrad.helpers import TRAINING
 from tinygrad.tensor import Tensor as T
 
 from tinyflow.nn import UNetTinygrad
@@ -143,7 +144,7 @@ def main():
     time_embed_dim = detect_time_embed_dim(args.model_path, in_ch)
     model = UNetTinygrad(in_ch, in_ch, time_embed_dim=time_embed_dim)
     BaseTrainer.load_model(model, args.model_path)
-    T.training = False
+    TRAINING.value = 0
 
     mlflow.set_experiment(args.experiment)
     with mlflow.start_run(run_name="1_adaptive_sampler") as parent:

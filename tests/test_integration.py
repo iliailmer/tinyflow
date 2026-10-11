@@ -1,5 +1,6 @@
 import numpy as np
 import pytest
+from tinygrad.helpers import TRAINING
 from tinygrad.nn.optim import Adam
 from tinygrad.nn.state import get_parameters
 from tinygrad.tensor import Tensor as T
@@ -23,7 +24,7 @@ class TestEndToEndTraining:
         x_0 = T.randn(10, 2)
         t = T.rand(10, 1) * 0.99
 
-        T.training = True
+        TRAINING.value = 1
         losses = []
 
         for _ in range(3):
@@ -48,7 +49,7 @@ class TestEndToEndTraining:
         x_1 = T.randn(20, 2)
         x_0 = T.randn(20, 2)
 
-        T.training = True
+        TRAINING.value = 1
         for _ in range(5):
             t = T.rand(20, 1) * 0.99
             x_t, dx_t = path.sample(x_1=x_1, t=t, x_0=x_0)
@@ -59,7 +60,7 @@ class TestEndToEndTraining:
             optim.step()
 
         # Sample through time
-        T.training = False
+        TRAINING.value = 0
         solver = RK4(rhs_fn=model, preprocess_hook=preprocess_time_moons)
 
         x = solver.solve(T.randn(10, 2), uniform_time_grid(10))

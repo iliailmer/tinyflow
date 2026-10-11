@@ -34,6 +34,7 @@ from _common import create_lr_scheduler, create_scheduler, create_solver, get_pr
 from loguru import logger
 from omegaconf import DictConfig, OmegaConf
 from sklearn.datasets import make_moons
+from tinygrad.helpers import TRAINING
 from tinygrad.nn.optim import Adam
 from tinygrad.nn.state import get_parameters, get_state_dict, safe_save
 from tinygrad.tensor import Tensor as T
@@ -178,7 +179,7 @@ def train_moons(cfg: DictConfig, model_name: str):
     losses = []
 
     pbar = tqdm(range(cfg.training.num_epochs))
-    T.training = True
+    TRAINING.value = 1
     for iter_idx in pbar:
         x, _ = make_moons(n_samples=cfg.dataset.n_samples, noise=cfg.dataset.noise)
         x_1 = T(x.astype("float32"))  # pyright: ignore

@@ -25,6 +25,7 @@ from _common import (
     per_sample_norm_mean,
     schedule_grid,
 )
+from tinygrad.helpers import TRAINING
 from tinygrad.tensor import Tensor as T
 from tqdm import tqdm
 
@@ -89,7 +90,7 @@ def profile(
     model = build_model(dataset, model_path)
     BaseTrainer.load_model(model, model_path)
 
-    T.training = False
+    TRAINING.value = 0
     shape = tuple([batch_size] + list(cfg["shape"]))
     x = T.randn(*shape).realize()
     h = 1.0 / num_steps

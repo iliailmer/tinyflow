@@ -6,6 +6,7 @@ from typing import Any
 import mlflow
 from loguru import logger
 from matplotlib import pyplot as plt
+from tinygrad.helpers import Context
 from tinygrad.nn.optim import LAMB
 from tinygrad.nn.state import get_state_dict, load_state_dict, safe_load, safe_save
 from tinygrad.tensor import Tensor as T
@@ -68,7 +69,7 @@ class BaseTrainer(ABC):
     @logger.catch(reraise=True)
     def train(self) -> BaseNeuralNetwork:
         pbar = tqdm(range(self.num_epochs))
-        with T.train(True):
+        with Context(TRAINING=1):
             for epoch_idx in pbar:
                 mean_loss = self.epoch(epoch_idx)
                 metrics = {"loss": mean_loss}
@@ -153,7 +154,7 @@ class MNISTTrainer(BaseTrainer):
         return mean_loss_per_epoch
 
     def predict(self, cfg, solver: ODESolver):
-        with T.train(False):
+        with Context(TRAINING=0):
             x = T.randn(cfg.training.get("num_samples", 1), 1, 28, 28)
             time_grid = uniform_time_grid(round(1 / cfg.training.step_size))
 
@@ -223,7 +224,7 @@ class CIFAR10Trainer(BaseTrainer):
 
     def predict(self, cfg, solver: ODESolver):
         """Generate CIFAR-10 samples."""
-        with T.train(False):
+        with Context(TRAINING=0):
             num_samples = cfg.training.get("num_samples", 1)
             x = T.randn(num_samples, 3, 32, 32)
             time_grid = uniform_time_grid(round(1 / cfg.training.step_size))

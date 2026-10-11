@@ -34,6 +34,7 @@ import numpy as np
 from _common import create_solver, detect_time_embed_dim
 from omegaconf import DictConfig, OmegaConf
 from PIL import Image
+from tinygrad.helpers import TRAINING
 from tinygrad.tensor import Tensor as T
 from tqdm import tqdm
 
@@ -108,7 +109,7 @@ def generate_image_grid(cfg: DictConfig, model, solver, dataset_config):
     print(f"Generating {grid_size}x{grid_size} grid ({grid_size * grid_size} samples)...")
 
     # Generate samples
-    T.training = False
+    TRAINING.value = 0
     batch_size = grid_size * grid_size
     shape = (batch_size,) + dataset_config["shape"]
     x = solver.solve(T.randn(*shape), uniform_time_grid(num_steps))
@@ -166,7 +167,7 @@ def generate_image_animation(cfg: DictConfig, model, solver, dataset_config):
     print(f"Generating {grid_size}x{grid_size} animated grid with {num_frames} frames...")
 
     # Generate samples and capture frames
-    T.training = False
+    TRAINING.value = 0
     batch_size = grid_size * grid_size
     shape = (batch_size,) + dataset_config["shape"]
     capture_steps = set(np.linspace(1, num_steps, min(num_frames, num_steps)).round().astype(int))
@@ -267,7 +268,7 @@ def generate_moons_grid(cfg: DictConfig, solver):
     print(f"Generating {n_samples} samples with {num_plots} snapshots...")
 
     # Initialize samples
-    T.training = False
+    TRAINING.value = 0
     x = T.randn(n_samples, 2)
     snapshots = solve_with_snapshots(x, solver, uniform_time_grid(num_steps), num_plots)
 
@@ -305,7 +306,7 @@ def generate_moons_animation(cfg: DictConfig, solver):
     print(f"Generating {n_samples} samples with {num_plots} frames...")
 
     # Initialize samples
-    T.training = False
+    TRAINING.value = 0
     x = T.randn(n_samples, 2)
     snapshots = solve_with_snapshots(x, solver, uniform_time_grid(num_steps), num_plots)
 
