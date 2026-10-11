@@ -17,24 +17,26 @@ def uniform_time_grid(num_steps: int) -> np.ndarray:
     return np.linspace(0.0, 1.0, num_steps + 1)
 
 
+def identity(t, rhs_prev):
+    return t
+
+
 class ODESolver(ABC):
-    def __init__(self, rhs_fn: Callable | BaseNeuralNetwork):
+    def __init__(self, rhs_fn: Callable | BaseNeuralNetwork, preprocess_hook: Callable = identity):
         """
         Base class for ODESolver.
         Args:
             rhs_fn: the right hand side function of the ode
+            preprocess_hook: maps (t, x) to the time input of rhs_fn
         """
         self.rhs = rhs_fn
+        self.preprocess_hook = preprocess_hook
 
     @abstractmethod
     def step(self, h, t, rhs_prev) -> T:
         """
         Placeholder for the single ODE solver step
         """
-        pass
-
-    @abstractmethod
-    def sample(self, h, t, rhs_prev):
         pass
 
     def solve(

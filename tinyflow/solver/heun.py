@@ -5,14 +5,7 @@ Second-order accurate solver widely used in modern diffusion models (e.g., EDM).
 Provides better accuracy than Euler with minimal computational overhead.
 """
 
-from collections.abc import Callable
-
-from tinyflow.nn import BaseNeuralNetwork
 from tinyflow.solver.solver import ODESolver
-
-
-def identity(t, rhs_prev):
-    return t
 
 
 class Heun(ODESolver):
@@ -27,14 +20,6 @@ class Heun(ODESolver):
     Second-order accurate, widely used in EDM and modern diffusion samplers.
     Better quality than Euler with only 2x function evaluations per step.
     """
-
-    def __init__(
-        self,
-        rhs_fn: Callable | BaseNeuralNetwork,
-        preprocess_hook: Callable = identity,
-    ):
-        super().__init__(rhs_fn)
-        self.preprocess_hook = preprocess_hook
 
     def step(self, h, t, rhs_prev):
         """
@@ -62,6 +47,3 @@ class Heun(ODESolver):
 
         # Average of slopes (trapezoid rule)
         return rhs_prev + h * (k1 + k2) / 2
-
-    def sample(self, h, t, rhs_prev):
-        return self.step(h, t, rhs_prev)

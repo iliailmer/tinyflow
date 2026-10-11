@@ -36,7 +36,6 @@ from _common import (
     create_scheduler,
     create_solver,
     create_time_sampler,
-    get_preprocess_hook,
     seed_everything,
 )
 from loguru import logger
@@ -210,7 +209,7 @@ def train_moons(cfg: DictConfig, model_name: str):
         x = T.randn(num_samples, 2)
         time_grid = uniform_time_grid(round(1 / cfg.training.step_size))
 
-        solver = create_solver(cfg, model, get_preprocess_hook(cfg))
+        solver = create_solver(cfg, model)
         image_path = visualize_moons(
             x,
             solver=solver,
@@ -242,7 +241,7 @@ def train_images(cfg: DictConfig, model_name: str):
         trainer.plot_loss(cfg.get("output_dir", "outputs"))
 
     if cfg.training.get("generate_samples", True):
-        solver = create_solver(cfg, model, get_preprocess_hook(cfg))
+        solver = create_solver(cfg, model)
         trainer.predict(cfg, solver)
 
 

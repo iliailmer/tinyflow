@@ -10,7 +10,7 @@ from tinyflow.nn import NeuralNetwork
 from tinyflow.path import AffinePath
 from tinyflow.path.scheduler import LinearScheduler
 from tinyflow.solver import RK4, uniform_time_grid
-from tinyflow.utils import preprocess_time_moons
+from tinyflow.utils import preprocess_time
 
 
 class TestEndToEndTraining:
@@ -61,7 +61,7 @@ class TestEndToEndTraining:
 
         # Sample through time
         TRAINING.value = 0
-        solver = RK4(rhs_fn=model, preprocess_hook=preprocess_time_moons)
+        solver = RK4(rhs_fn=model, preprocess_hook=preprocess_time)
 
         x = solver.solve(T.randn(10, 2), uniform_time_grid(10))
 
