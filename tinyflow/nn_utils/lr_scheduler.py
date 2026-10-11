@@ -1,10 +1,10 @@
 import math
 
-from tinygrad import nn
+from tinygrad.nn.optim import Optimizer
 
 
 class BaseLRScheduler:
-    def __init__(self, optimizer: nn.optim.Optimizer):
+    def __init__(self, optimizer: Optimizer):
         self.optimizer = optimizer
         self.base_lr: float = self.optimizer.lr.numpy().item()
 
@@ -25,7 +25,7 @@ class BaseLRScheduler:
 
 
 class NullLRScheduler(BaseLRScheduler):
-    def __init__(self, optimizer: nn.optim.Optimizer):
+    def __init__(self, optimizer: Optimizer):
         super().__init__(optimizer)
 
     def step(self, iter: int):
@@ -34,7 +34,7 @@ class NullLRScheduler(BaseLRScheduler):
 
 
 class StepLRScheduler(BaseLRScheduler):
-    def __init__(self, optimizer: nn.optim.Optimizer, gamma: float, step_size: int = 1000):
+    def __init__(self, optimizer: Optimizer, gamma: float, step_size: int = 1000):
         super().__init__(optimizer)
         assert 0 < gamma < 1, "gamma must be within (0, 1) interval"
         self.gamma = gamma
@@ -48,7 +48,7 @@ class StepLRScheduler(BaseLRScheduler):
 class CosineAnnealingLR(BaseLRScheduler):
     def __init__(
         self,
-        optimizer: nn.optim.Optimizer,
+        optimizer: Optimizer,
         t_max: int,
         eta_min: float = 0.0,
         warm: bool = True,
@@ -102,7 +102,7 @@ class WarmupScheduler(BaseLRScheduler):
 
     def __init__(
         self,
-        optimizer: nn.optim.Optimizer,
+        optimizer: Optimizer,
         base_scheduler: BaseLRScheduler,
         warmup_steps: int,
         warmup_start_lr: float = 0.0,

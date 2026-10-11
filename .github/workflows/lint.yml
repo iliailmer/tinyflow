@@ -32,14 +32,11 @@ jobs:
     - name: Run ruff check (linting)
       run: |
         uv run ruff check tinyflow/ tests/ scripts/ experiments/ --output-format=github
-      continue-on-error: true
 
     - name: Run ruff format (formatting check)
       run: |
         uv run ruff format --check tinyflow/ tests/ scripts/ experiments/
-      continue-on-error: true
 
     - name: Run pyright (type checking)
       run: |
         uv run pyright tinyflow/
-      continue-on-error: true
