@@ -24,4 +24,3 @@ dataset:
 
 mlflow:
   experiment_name: "quick_tests"
-  log_models: false

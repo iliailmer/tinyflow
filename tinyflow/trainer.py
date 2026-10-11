@@ -87,7 +87,7 @@ class BaseTrainer(ABC):
 
         return self.model
 
-    def plot_loss(self, prefix: str, log_to_mlflow: bool = True):
+    def plot_loss(self, prefix: str):
         fig = plt.figure(figsize=(10, 4))
         plt.plot(self._losses)
         plt.xlabel("Iteration")
@@ -99,7 +99,8 @@ class BaseTrainer(ABC):
         os.makedirs(prefix, exist_ok=True)
         loss_path = os.path.join(prefix, "loss_curve.png")
         plt.savefig(loss_path)
-        mlflow.log_figure(fig, loss_path)
+        mlflow.log_figure(fig, "loss_curve.png")
+        plt.close(fig)
 
     @abstractmethod
     def epoch(self, epoch_idx: int | None):
@@ -166,15 +167,9 @@ class MNISTTrainer(BaseTrainer):
                 solver=solver,
                 time_grid=time_grid,
                 num_plots=cfg.training.get("num_plots", 10),
-                save_path="outputs/mnist_generation.png",
+                save_path=os.path.join(cfg.get("output_dir", "outputs"), "mnist_generation.png"),
             )
-
-            # Log to MLflow
-            try:
-                mlflow.log_artifact(image_path, "generated_images")
-                logger.info(f"Logged generated image to MLflow: {image_path}")
-            except Exception as e:
-                logger.warning(f"Failed to log image to MLflow: {e}")
+            mlflow.log_artifact(image_path, "generated_images")
 
 
 class CIFAR10Trainer(BaseTrainer):
@@ -237,12 +232,6 @@ class CIFAR10Trainer(BaseTrainer):
                 solver=solver,
                 time_grid=time_grid,
                 num_plots=cfg.training.get("num_plots", 10),
-                save_path="outputs/cifar10_generation.png",
+                save_path=os.path.join(cfg.get("output_dir", "outputs"), "cifar10_generation.png"),
             )
-
-            # Log to MLflow
-            try:
-                mlflow.log_artifact(image_path, "generated_images")
-                logger.info(f"Logged generated image to MLflow: {image_path}")
-            except Exception as e:
-                logger.warning(f"Failed to log image to MLflow: {e}")
+            mlflow.log_artifact(image_path, "generated_images")
