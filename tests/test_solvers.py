@@ -119,19 +119,17 @@ class TestHeun:
 
 
 class TestDDIM:
-    def test_deterministic_sampling(self):
-        """Test DDIM produces deterministic results"""
-
+    def test_matches_euler(self):
         def linear_rhs(x, t):
             return x
 
-        solver = DDIM(rhs_fn=linear_rhs, eta=0.0)  # eta=0 for deterministic
+        x_ddim = DDIM(rhs_fn=linear_rhs).step(0.1, T.zeros(1), T.ones(1))
+        x_euler = Euler(rhs_fn=linear_rhs).step(0.1, T.zeros(1), T.ones(1))
+        assert abs(x_ddim.numpy()[0] - x_euler.numpy()[0]) < 1e-6
 
-        x1_run1 = solver.step(0.1, T.zeros(1), T.ones(1))
-        x1_run2 = solver.step(0.1, T.zeros(1), T.ones(1))
-
-        # Should be identical (deterministic)
-        assert abs(x1_run1.numpy()[0] - x1_run2.numpy()[0]) < 1e-6
+    def test_rejects_stochastic_sampling(self):
+        with pytest.raises(ValueError, match="eta=0"):
+            DDIM(rhs_fn=lambda x, t: x, eta=0.5)
 
 
 class TestSolve:
