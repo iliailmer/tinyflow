@@ -58,8 +58,20 @@ from tinyflow.utils import visualize_moons
 plt.style.use("ggplot")
 
 
-mlflow.set_tracking_uri("sqlite:///mlflow.db")
-mlflow.set_experiment("flow_matching")
+def flatten_config(cfg: DictConfig) -> dict:
+    """Flatten a nested config to dotted keys, for example {"optimizer.lr": 0.001}."""
+    flat = {}
+
+    def walk(node, prefix):
+        for key, value in node.items():
+            name = f"{prefix}{key}"
+            if isinstance(value, dict):
+                walk(value, f"{name}.")
+            else:
+                flat[name] = value
+
+    walk(OmegaConf.to_container(cfg, resolve=True), "")
+    return flat
 
 
 def create_dataloader(cfg: DictConfig):
@@ -164,8 +176,11 @@ def train_moons(cfg: DictConfig, model_name: str):
 
         if iter_idx % cfg.training.log_interval == 0:
             desc = f"Loss: {loss_val:.4e}"
+            metrics = {"loss": loss_val}
             if lr_scheduler is not None:
+                metrics["learning_rate"] = lr_scheduler.get_lr()
                 desc += f" | LR: {lr_scheduler.get_lr():.6f}"
+            mlflow.log_metrics(metrics, step=iter_idx)
             pbar.set_description_str(desc)
 
         optim.step()
@@ -177,11 +192,11 @@ def train_moons(cfg: DictConfig, model_name: str):
         safe_save(get_state_dict(model), model_name)
         logger.info(f"✓ Model saved to: {model_name}")
 
+    output_dir = cfg.get("output_dir", "outputs")
     if cfg.training.get("log_artifacts", True):
-        output_dir = cfg.get("output_dir", "outputs")
         os.makedirs(output_dir, exist_ok=True)
 
-        plt.figure(figsize=(10, 4))
+        fig = plt.figure(figsize=(10, 4))
         plt.plot(losses)
         plt.xlabel("Iteration")
         plt.ylabel("Loss")
@@ -189,7 +204,8 @@ def train_moons(cfg: DictConfig, model_name: str):
         plt.grid(True)
         plt.tight_layout()
         plt.savefig(os.path.join(output_dir, "loss_curve.png"))
-        plt.close()
+        mlflow.log_figure(fig, "loss_curve.png")
+        plt.close(fig)
 
     if cfg.training.get("generate_samples", True):
         num_samples = cfg.training.get("n_samples", 100)
@@ -197,12 +213,14 @@ def train_moons(cfg: DictConfig, model_name: str):
         time_grid = uniform_time_grid(round(1 / cfg.training.step_size))
 
         solver = create_solver(cfg, model, get_preprocess_hook(cfg))
-        visualize_moons(
+        image_path = visualize_moons(
             x,
             solver=solver,
             time_grid=time_grid,
             num_plots=cfg.training.get("num_plots", 10),
+            save_path=os.path.join(output_dir, "moons_generation.png"),
         )
+        mlflow.log_artifact(image_path, "generated_images")
 
 
 def train_images(cfg: DictConfig, model_name: str):
@@ -218,17 +236,12 @@ def train_images(cfg: DictConfig, model_name: str):
     time_sampler = create_time_sampler(cfg)
     trainer = create_trainer(cfg, model, time_sampler, dataloader, optim, path, lr_scheduler)
 
-    dataset_name = cfg.dataset.get("type", cfg.dataset.name)
-    with mlflow.start_run(run_name=dataset_name):
-        mlflow.log_params(dict(cfg))
-        mlflow.log_param("model_name", model_name)
-        model = trainer.train()
-    trainer.save_model(model_name)
+    model = trainer.train()
+    if cfg.training.get("save_model", True):
+        trainer.save_model(model_name)
 
     if cfg.training.get("log_artifacts", True):
-        output_dir = cfg.get("output_dir", "outputs")
-        os.makedirs(output_dir, exist_ok=True)
-        trainer.plot_loss(output_dir, log_to_mlflow=True)
+        trainer.plot_loss(cfg.get("output_dir", "outputs"))
 
     if cfg.training.get("generate_samples", True):
         solver = create_solver(cfg, model, get_preprocess_hook(cfg))
@@ -249,10 +262,24 @@ def main(cfg: DictConfig):
     logger.info(f"\nModel will be saved as: {model_name}")
 
     dataset_type = cfg.dataset.get("type", cfg.dataset.name)
-    if dataset_type == "moons":
-        train_moons(cfg, model_name)
-    else:
-        train_images(cfg, model_name)
+    mlflow.set_tracking_uri(cfg.mlflow.tracking_uri)
+    mlflow.set_experiment(cfg.mlflow.experiment_name)
+    with mlflow.start_run(run_name=dataset_type):
+        mlflow.log_params(flatten_config(cfg))
+        mlflow.log_param("model_name", model_name)
+        mlflow.set_tags(
+            {
+                "dataset": dataset_type,
+                "model": cfg.model.type,
+                "scheduler": cfg.scheduler.type,
+                "solver": cfg.solver.type,
+                "time_sampler": cfg.time_sampler.type,
+            }
+        )
+        if dataset_type == "moons":
+            train_moons(cfg, model_name)
+        else:
+            train_images(cfg, model_name)
 
 
 if __name__ == "__main__":
