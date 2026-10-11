@@ -6,6 +6,7 @@ defaults:
   - model: unet_large  # Medium model (unet_large name kept for compatibility)
   - scheduler: linear  # Flow matching path scheduler
   - solver: rk4  # 4th order Runge-Kutta (best quality)
+  - time_sampler: uniform
   - optimizer: adam
   - lr_scheduler: cosine_warmup_long  # Warmup + cosine decay
   - dataset: cifar10

@@ -96,7 +96,7 @@ def make_combined_figure(results, nfes, path: str):
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--model-path", default="model_mnist_unet_linear.safetensors")
+    parser.add_argument("--model-path", default="weights/model_mnist_unet_linear.safetensors")
     parser.add_argument("--nfes", type=int, nargs="+", default=[8, 12, 20, 40])
     parser.add_argument("--p", type=float, default=2.5)
     parser.add_argument("--n-samples", type=int, default=9)

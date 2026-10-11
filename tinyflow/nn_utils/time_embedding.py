@@ -11,8 +11,6 @@ class TimeEmbedding:
 
     Takes a scalar time value t and produces a learned embedding.
 
-    TODO: Replace with sinusoidal embeddings for better temporal inductive bias.
-
     Args:
         dim: Dimension of the time embedding output
     """
@@ -39,12 +37,8 @@ class SinusoidalTimeEmbedding:
     """
     Sinusoidal time embeddings (similar to Transformer positional encodings).
 
-    TODO: Implement this using sin/cos at multiple frequencies:
-        embed[2i] = sin(t * omega_i)
-        embed[2i+1] = cos(t * omega_i)
-    where omega_i = 10000^(-2i/d)
-
-    This provides better inductive bias for temporal information.
+    embed[2i] = sin(t * omega_i), embed[2i+1] = cos(t * omega_i),
+    where omega_i = 10000^(-2i/d).
 
     Args:
         dim: Dimension of the time embedding (should be even)

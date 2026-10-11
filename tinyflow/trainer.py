@@ -63,8 +63,10 @@ class BaseTrainer(ABC):
         print(f"✓ Model saved to: {output_path}")
 
     @staticmethod
-    def load_model(model: BaseNeuralNetwork, model_path: str = "model.safetensors"):
-        return load_state_dict(model, safe_load(model_path), strict=False)
+    def load_model(
+        model: BaseNeuralNetwork, model_path: str = "model.safetensors", strict: bool = True
+    ):
+        return load_state_dict(model, safe_load(model_path), strict=strict)
 
     @logger.catch(reraise=True)
     def train(self) -> BaseNeuralNetwork:
@@ -155,7 +157,7 @@ class MNISTTrainer(BaseTrainer):
 
     def predict(self, cfg, solver: ODESolver):
         with Context(TRAINING=0):
-            x = T.randn(cfg.training.get("num_samples", 1), 1, 28, 28)
+            x = T.randn(cfg.training.get("n_samples", 1), 1, 28, 28)
             time_grid = uniform_time_grid(round(1 / cfg.training.step_size))
 
             # Generate visualization and save
@@ -225,7 +227,7 @@ class CIFAR10Trainer(BaseTrainer):
     def predict(self, cfg, solver: ODESolver):
         """Generate CIFAR-10 samples."""
         with Context(TRAINING=0):
-            num_samples = cfg.training.get("num_samples", 1)
+            num_samples = cfg.training.get("n_samples", 1)
             x = T.randn(num_samples, 3, 32, 32)
             time_grid = uniform_time_grid(round(1 / cfg.training.step_size))
 

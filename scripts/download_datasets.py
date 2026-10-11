@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Download datasets (Fashion MNIST, CIFAR-10) to the datasets/ directory.
+Download datasets (Fashion MNIST, CIFAR-10) to the dataset/ directory.
 
 Usage:
     python scripts/download_datasets.py --dataset fashion_mnist

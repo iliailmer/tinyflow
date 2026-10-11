@@ -15,7 +15,7 @@ optimizer:
 training:
   num_epochs: 5000
   log_interval: 50
-  num_samples: 100
+  n_samples: 100
 
 dataset:
   n_samples: 100
