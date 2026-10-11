@@ -30,7 +30,15 @@ import os
 import hydra
 import matplotlib.pyplot as plt
 import mlflow
-from _common import create_lr_scheduler, create_scheduler, create_solver, get_preprocess_hook
+from _common import (
+    create_lr_scheduler,
+    create_model,
+    create_scheduler,
+    create_solver,
+    create_time_sampler,
+    get_preprocess_hook,
+    seed_everything,
+)
 from loguru import logger
 from omegaconf import DictConfig, OmegaConf
 from sklearn.datasets import make_moons
@@ -42,42 +50,16 @@ from tqdm.auto import tqdm
 
 from tinyflow.dataloader import CIFAR10Loader, FashionMNISTLoader, MNISTLoader
 from tinyflow.losses import mse
-from tinyflow.nn import NeuralNetwork, UNetCIFAR10, UNetCIFAR10Large, UNetMNIST
 from tinyflow.path import AffinePath
 from tinyflow.solver import uniform_time_grid
-from tinyflow.time_sampler import BaseTimeSampler, LogitNormalSampler, UniformTimeSampler
 from tinyflow.trainer import CIFAR10Trainer, MNISTTrainer
 from tinyflow.utils import visualize_moons
 
 plt.style.use("ggplot")
 
+
 mlflow.set_tracking_uri("sqlite:///mlflow.db")
 mlflow.set_experiment("flow_matching")
-
-
-def create_model(cfg: DictConfig):
-    """Create model from config."""
-    model_type = cfg.model.type
-    if model_type == "neural_network":
-        return NeuralNetwork(
-            in_dim=cfg.model.input_dim,
-            time_embed_dim=cfg.model.time_embed_dim,
-            out_dim=cfg.model.output_dim,
-        )
-
-    dataset_type = cfg.dataset.get("type", cfg.dataset.name)
-    if model_type == "unet":
-        if dataset_type in ["mnist", "fashion_mnist"]:
-            return UNetMNIST(in_channels=1, out_channels=1)
-        elif dataset_type == "cifar10":
-            return UNetCIFAR10(in_channels=3, out_channels=3)
-    elif model_type == "unet_large":
-        if dataset_type == "cifar10":
-            return UNetCIFAR10Large(in_channels=3, out_channels=3)
-        else:
-            raise ValueError(f"unet_large only supports cifar10, got {dataset_type}")
-
-    raise ValueError(f"Unknown model type: {model_type} with dataset type: {dataset_type}")
 
 
 def create_dataloader(cfg: DictConfig):
@@ -110,20 +92,6 @@ def create_dataloader(cfg: DictConfig):
         )
     else:
         raise ValueError(f"Unknown dataset type: {dataset_type}")
-
-
-def create_time_sampler(cfg: DictConfig) -> BaseTimeSampler:
-    """Create time sampler instance"""
-    time_sampler_type = cfg.time_sampler.get("type")
-    if time_sampler_type == "uniform":
-        low: float = cfg.time_sampler.get("low")
-        high: float = cfg.time_sampler.get("high")
-        return UniformTimeSampler(low, high)
-    if time_sampler_type == "logit_normal":
-        mean: float = cfg.time_sampler.get("mean")
-        stddev: float = cfg.time_sampler.get("stddev")
-        return LogitNormalSampler(mean, stddev)
-    raise ValueError(f"Unknown time sampler: {time_sampler_type}")
 
 
 def create_trainer(
@@ -273,11 +241,11 @@ def main(cfg: DictConfig):
     logger.info("Configuration:")
     logger.info(OmegaConf.to_yaml(cfg))
 
-    if cfg.get("seed"):
-        T.manual_seed(cfg.seed)
+    seed_everything(cfg)
 
     model_name = cfg.get("model_name", generate_model_name(cfg))
     model_name = f"weights/{model_name}"
+    os.makedirs("weights", exist_ok=True)
     logger.info(f"\nModel will be saved as: {model_name}")
 
     dataset_type = cfg.dataset.get("type", cfg.dataset.name)

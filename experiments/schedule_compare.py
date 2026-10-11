@@ -70,7 +70,7 @@ def make_combined_figure(results, p: float, path: str):
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--model-path", default="model_mnist_unet_linear.safetensors")
+    parser.add_argument("--model-path", default="weights/model_mnist_unet_linear.safetensors")
     parser.add_argument("--steps", type=int, nargs="+", default=[10, 20, 50])
     parser.add_argument(
         "--p",

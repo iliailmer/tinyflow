@@ -31,14 +31,13 @@ import sys
 import hydra
 import matplotlib.pyplot as plt
 import numpy as np
-from _common import create_solver, detect_time_embed_dim
+from _common import create_model, create_solver, seed_everything
 from omegaconf import DictConfig, OmegaConf
 from PIL import Image
 from tinygrad.helpers import TRAINING
 from tinygrad.tensor import Tensor as T
 from tqdm import tqdm
 
-from tinyflow.nn import NeuralNetwork, UNetTinygrad
 from tinyflow.solver import uniform_time_grid
 from tinyflow.trainer import BaseTrainer
 from tinyflow.utils import (
@@ -49,28 +48,6 @@ from tinyflow.utils import (
 )
 
 plt.style.use("ggplot")
-
-
-def create_model(cfg: DictConfig):
-    """Create model from config, sized to match the checkpoint being loaded."""
-    model_type = cfg.model.type
-    if model_type == "neural_network":
-        return NeuralNetwork(
-            in_dim=cfg.model.input_dim,
-            time_embed_dim=cfg.model.time_embed_dim,
-            out_dim=cfg.model.output_dim,
-        )
-
-    dataset_type = cfg.dataset.get("type", cfg.dataset.name)
-    model_path = cfg.generation.model_path
-    if model_type == "unet":
-        if "mnist" in dataset_type:
-            time_embed_dim = detect_time_embed_dim(model_path, in_channels=1)
-            return UNetTinygrad(time_embed_dim=time_embed_dim)
-        if "cifar" in dataset_type:
-            time_embed_dim = detect_time_embed_dim(model_path, in_channels=3)
-            return UNetTinygrad(3, 3, time_embed_dim=time_embed_dim)
-    raise ValueError(f"Unknown model type: {model_type}")
 
 
 # --------------------------------------------------------------------------
@@ -240,7 +217,7 @@ def run_image_generation(cfg: DictConfig, animated: bool):
         raise FileNotFoundError(f"Model file not found: {model_path}")
 
     print(f"\nLoading model from {model_path}...")
-    model = create_model(cfg)
+    model = create_model(cfg, model_path)
     BaseTrainer.load_model(model, model_path)
 
     # Note: Scheduler/path not needed at generation time - the model has already
@@ -359,7 +336,7 @@ def run_moons_generation(cfg: DictConfig, animated: bool):
         raise FileNotFoundError(f"Model file not found: {model_path}")
 
     print(f"\nLoading model from {model_path}...")
-    model = create_model(cfg)
+    model = create_model(cfg, model_path)
     BaseTrainer.load_model(model, model_path)
 
     # Note: Scheduler/path not needed at generation time - the model has already
@@ -380,9 +357,7 @@ def main_impl(cfg: DictConfig):
     print(OmegaConf.to_yaml(cfg))
     print(f"\nAnimated: {animated}")
 
-    # Set random seed
-    if cfg.get("seed"):
-        T.manual_seed(cfg.seed)
+    seed_everything(cfg)
 
     dataset_type = cfg.dataset.get("type", cfg.dataset.name)
     if dataset_type == "moons":

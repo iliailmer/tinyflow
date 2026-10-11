@@ -29,7 +29,7 @@ from tinygrad.helpers import TRAINING
 from tinygrad.tensor import Tensor as T
 from tqdm import tqdm
 
-from tinyflow.nn import NeuralNetwork, UNetTinygrad
+from tinyflow.nn import NeuralNetwork, UNetCIFAR10, UNetMNIST
 from tinyflow.trainer import BaseTrainer
 from tinyflow.utils import preprocess_time_cifar, preprocess_time_mnist, preprocess_time_moons
 
@@ -43,7 +43,7 @@ DATASET_CONFIGS = {
         "shape": (2,),
         "kind": "mlp",
         "preprocess": preprocess_time_moons,
-        "default_path": "model_moons_neural_network_linear.safetensors",
+        "default_path": "weights/model_moons_neural_network_linear.safetensors",
         "default_batch": 256,
     },
     "mnist": {
@@ -51,7 +51,7 @@ DATASET_CONFIGS = {
         "kind": "unet",
         "in_channels": 1,
         "preprocess": preprocess_time_mnist,
-        "default_path": "model_mnist_unet_linear.safetensors",
+        "default_path": "weights/model_mnist_unet_linear.safetensors",
         "default_batch": 32,
     },
     "fashion_mnist": {
@@ -59,7 +59,7 @@ DATASET_CONFIGS = {
         "kind": "unet",
         "in_channels": 1,
         "preprocess": preprocess_time_mnist,
-        "default_path": "model_fashion_mnist_unet_linear.safetensors",
+        "default_path": "weights/model_fashion_mnist_unet_linear.safetensors",
         "default_batch": 32,
     },
     "cifar10": {
@@ -67,7 +67,7 @@ DATASET_CONFIGS = {
         "kind": "unet",
         "in_channels": 3,
         "preprocess": preprocess_time_cifar,
-        "default_path": "model_cifar10_unet_linear.safetensors",
+        "default_path": "weights/model_cifar10_unet_linear.safetensors",
         "default_batch": 16,
     },
 }
@@ -78,7 +78,8 @@ def build_model(dataset: str, model_path: str):
     if cfg["kind"] == "mlp":
         return NeuralNetwork(in_dim=2, time_embed_dim=64, out_dim=2)
     in_ch = cfg["in_channels"]
-    return UNetTinygrad(in_ch, in_ch, time_embed_dim=detect_time_embed_dim(model_path, in_ch))
+    model_cls = UNetCIFAR10 if dataset == "cifar10" else UNetMNIST
+    return model_cls(in_ch, in_ch, time_embed_dim=detect_time_embed_dim(model_path, in_ch))
 
 
 def profile(
