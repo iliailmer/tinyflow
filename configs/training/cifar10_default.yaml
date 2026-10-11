@@ -1,7 +1,8 @@
 # @package _global_
 
 training:
-  num_epochs: 3  # CIFAR-10 needs more epochs than MNIST
+  # One pass checks that the pipeline runs. Usable CIFAR-10 samples need many more epochs.
+  num_epochs: 1
   step_size: 0.05  # ODE solver step size (20 steps for inference)
   n_samples: 4  # Generate multiple samples at once
   log_interval: 10  # Log every 10 epochs
