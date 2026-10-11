@@ -18,3 +18,5 @@ outputs
 !README.md
 
 weights/
+.tasklist
+.DS_Store
