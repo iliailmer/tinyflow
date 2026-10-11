@@ -46,6 +46,13 @@ class TestLinearVarPresScheduler:
             variance_sum = alpha**2 + sigma**2
             assert abs(variance_sum - 1.0) < 1e-4
 
+    def test_sigma_dot_is_bounded_at_t_1(self):
+        scheduler = LinearVarPresScheduler()
+        sigma_dot = scheduler.sigma_t_dot(T([0.5, 1.0])).numpy()
+
+        assert abs(sigma_dot[0] - (-0.5 / 0.75**0.5)) < 1e-5
+        assert -30 < sigma_dot[1] < 0
+
 
 class TestCosineScheduler:
     def test_boundary_conditions(self):
