@@ -91,7 +91,6 @@ def create_dataloader(cfg: DictConfig):
         )
     elif dataset_type == "cifar10":
         path = cfg.dataset.get("path", "dataset/cifar10/cifar-10-batches-py")
-        cache = cfg.dataset.get("cache", True)
         normalize = cfg.dataset.get("normalize", True)
         train = cfg.dataset.get("train", True)
         return CIFAR10Loader(
@@ -99,7 +98,6 @@ def create_dataloader(cfg: DictConfig):
             batch_size=batch_size,
             shuffle=shuffle,
             train=train,
-            cache=cache,
             normalize=normalize,
         )
     else:
