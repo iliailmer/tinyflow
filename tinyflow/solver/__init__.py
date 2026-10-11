@@ -3,6 +3,6 @@ from tinyflow.solver.euler import Euler
 from tinyflow.solver.heun import Heun
 from tinyflow.solver.midpoint import MidpointSolver
 from tinyflow.solver.rk4 import RK4
-from tinyflow.solver.solver import ODESolver
+from tinyflow.solver.solver import ODESolver, uniform_time_grid
 
-__all__ = ["ODESolver", "RK4", "Euler", "MidpointSolver", "Heun", "DDIM"]
+__all__ = ["ODESolver", "RK4", "Euler", "MidpointSolver", "Heun", "DDIM", "uniform_time_grid"]

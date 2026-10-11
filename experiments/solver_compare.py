@@ -25,7 +25,6 @@ import os
 
 import matplotlib.pyplot as plt
 import mlflow
-import numpy as np
 from _common import (
     detect_time_embed_dim,
     make_grid,
@@ -60,15 +59,6 @@ def make_solver(name: str, model):
     if name == "rk4":
         return RK4(model, preprocess_hook=preprocess_time_mnist)
     raise ValueError(name)
-
-
-def integrate(solver, x0, ts: np.ndarray):
-    x = x0
-    for i in range(len(ts) - 1):
-        t = (T.zeros(1) + float(ts[i])).contiguous()
-        h = float(ts[i + 1] - ts[i])
-        x = solver.sample(h, t, x).realize()
-    return x
 
 
 def make_combined_figure(results, nfes, path: str):
@@ -162,7 +152,7 @@ def main():
                         }
                     )
 
-                    x_final = integrate(solver, x0, ts)
+                    x_final = solver.solve(x0, ts)
                     x_np = x_final.numpy()
                     results[(key, nfe)] = x_np
 

@@ -4,7 +4,6 @@ from collections.abc import Callable
 from typing import Any
 
 import mlflow
-import numpy as np
 from loguru import logger
 from matplotlib import pyplot as plt
 from tinygrad.nn.optim import LAMB
@@ -15,12 +14,9 @@ from tqdm.auto import tqdm
 from tinyflow.dataloader import BaseDataloader
 from tinyflow.nn import BaseNeuralNetwork
 from tinyflow.path import Path
-from tinyflow.solver import ODESolver
+from tinyflow.solver import ODESolver, uniform_time_grid
 from tinyflow.time_sampler import BaseTimeSampler
 from tinyflow.utils import visualize_cifar10, visualize_mnist
-
-# Import metrics lazily to avoid circular imports
-_fid_extractor_cache = {}
 
 
 class BaseTrainer(ABC):
@@ -36,10 +32,6 @@ class BaseTrainer(ABC):
         lr_scheduler=None,
         time_sampler: BaseTimeSampler | None = None,
         gradient_accumulation_steps: int = 1,
-        compute_fid: bool = False,
-        fid_interval: int = 50,
-        fid_num_samples: int = 500,
-        dataset_name: str = "mnist",
     ):
         self.model = model
         self.dataloader = dataloader
@@ -57,13 +49,6 @@ class BaseTrainer(ABC):
         self._losses = []
         self.global_step = 0
         self.accumulation_step = 0
-
-        # FID evaluation settings
-        self.compute_fid = compute_fid
-        self.fid_interval = fid_interval
-        self.fid_num_samples = fid_num_samples
-        self.dataset_name = dataset_name
-        self._fid_extractor = None
 
     def next_batch(self):
         try:
@@ -93,12 +78,6 @@ class BaseTrainer(ABC):
                     current_lr = self.lr_scheduler.get_lr()
                     metrics["learning_rate"] = current_lr
 
-                # Evaluate FID at intervals
-                if self.compute_fid and (epoch_idx + 1) % self.fid_interval == 0:
-                    fid_score = self.evaluate_fid()
-                    if not np.isnan(fid_score):
-                        metrics["fid"] = fid_score
-
                 # Log metrics with step for proper line chart visualization
                 mlflow.log_metrics(metrics, step=epoch_idx)
                 pbar.set_description(f"Loss: {mean_loss:.4f}")
@@ -118,88 +97,6 @@ class BaseTrainer(ABC):
         loss_path = os.path.join(prefix, "loss_curve.png")
         plt.savefig(loss_path)
         mlflow.log_figure(fig, loss_path)
-
-    def evaluate_fid(self, solver: ODESolver | None = None) -> float:
-        """
-        Evaluate FID score by generating samples and comparing to real data.
-
-        Args:
-            solver: ODE solver to use for generation. If None, uses Euler solver.
-
-        Returns:
-            FID score (lower is better)
-        """
-        import numpy as np
-
-        from tinyflow.metrics import calculate_fid_batched, get_feature_extractor
-        from tinyflow.solver import Euler
-
-        # Lazy load feature extractor
-        if self._fid_extractor is None:
-            self._fid_extractor = get_feature_extractor(self.dataset_name)
-
-        # Check if weights are loaded
-        if not self._fid_extractor._weights_loaded:
-            logger.warning("FID classifier weights not loaded, skipping FID evaluation")
-            return float("nan")
-
-        # Use provided solver or create Euler solver
-        if solver is None:
-            solver = Euler(self.model)
-
-        # Collect real images from dataloader
-        logger.info(f"Collecting {self.fid_num_samples} real images for FID...")
-        real_images = []
-        real_count = 0
-        for batch_images, _ in self.dataloader:
-            real_images.append(batch_images)
-            real_count += len(batch_images)
-            if real_count >= self.fid_num_samples:
-                break
-        real_images = np.concatenate(real_images, axis=0)[: self.fid_num_samples]
-
-        # Generate samples
-        logger.info(f"Generating {self.fid_num_samples} samples for FID...")
-        with T.train(False):
-            generated_images = []
-            batch_size = min(64, self.fid_num_samples)
-            num_batches = (self.fid_num_samples + batch_size - 1) // batch_size
-
-            for _ in range(num_batches):
-                current_batch = min(
-                    batch_size, self.fid_num_samples - len(generated_images) * batch_size
-                )
-                if current_batch <= 0:
-                    break
-
-                # Get input shape from real images
-                sample_shape = (current_batch,) + real_images.shape[1:]
-                x = T.randn(*sample_shape)
-
-                # Integrate from t=0 to t=1
-                num_steps = 20
-                h = 1.0 / num_steps
-                for step in range(num_steps):
-                    t = step * h
-                    x = solver.step(h, T.full((current_batch, 1), t), x)
-
-                # Clamp to valid range
-                x_np = x.numpy()
-                x_np = np.clip(x_np, 0, 1)
-                generated_images.append(x_np)
-
-            generated_images = np.concatenate(generated_images, axis=0)[: self.fid_num_samples]
-
-        # Calculate FID
-        fid = calculate_fid_batched(
-            real_images,
-            generated_images,
-            self._fid_extractor,
-            batch_size=64,
-        )
-
-        logger.info(f"FID score: {fid:.4f}")
-        return fid
 
     @abstractmethod
     def epoch(self, epoch_idx: int | None):
@@ -258,15 +155,13 @@ class MNISTTrainer(BaseTrainer):
     def predict(self, cfg, solver: ODESolver):
         with T.train(False):
             x = T.randn(cfg.training.get("num_samples", 1), 1, 28, 28)
-            h_step = cfg.training.step_size
-            time_grid = T.linspace(0, 1, int(1 / h_step))
+            time_grid = uniform_time_grid(round(1 / cfg.training.step_size))
 
             # Generate visualization and save
             image_path = visualize_mnist(
                 x,
                 solver=solver,
                 time_grid=time_grid,
-                h_step=h_step,
                 num_plots=cfg.training.get("num_plots", 10),
                 save_path="outputs/mnist_generation.png",
             )
@@ -331,15 +226,13 @@ class CIFAR10Trainer(BaseTrainer):
         with T.train(False):
             num_samples = cfg.training.get("num_samples", 1)
             x = T.randn(num_samples, 3, 32, 32)
-            h_step = cfg.training.step_size
-            time_grid = T.linspace(0, 1, int(1 / h_step))
+            time_grid = uniform_time_grid(round(1 / cfg.training.step_size))
 
             # Generate visualization and save
             image_path = visualize_cifar10(
                 x,
                 solver=solver,
                 time_grid=time_grid,
-                h_step=h_step,
                 num_plots=cfg.training.get("num_plots", 10),
                 save_path="outputs/cifar10_generation.png",
             )

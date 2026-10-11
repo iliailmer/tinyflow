@@ -55,7 +55,7 @@ class SelfAttention:
         q, k, v = qkv[0], qkv[1], qkv[2]  # Each: (B, num_heads, H*W, head_dim)
 
         # Scaled dot-product attention
-        scale = self.head_dim ** -0.5
+        scale = self.head_dim**-0.5
         attn = (q @ k.transpose(-2, -1)) * scale  # (B, num_heads, H*W, H*W)
         attn = attn.softmax(axis=-1)
 

@@ -8,7 +8,7 @@ from tinyflow.losses import mse
 from tinyflow.nn import NeuralNetwork
 from tinyflow.path import AffinePath
 from tinyflow.path.scheduler import LinearScheduler
-from tinyflow.solver import RK4
+from tinyflow.solver import RK4, uniform_time_grid
 from tinyflow.utils import preprocess_time_moons
 
 
@@ -62,10 +62,7 @@ class TestEndToEndTraining:
         T.training = False
         solver = RK4(rhs_fn=model, preprocess_hook=preprocess_time_moons)
 
-        x = T.randn(10, 2)
-        for step in range(10):
-            t = T.zeros(1) + step * 0.1
-            x = solver.sample(0.1, t, x)
+        x = solver.solve(T.randn(10, 2), uniform_time_grid(10))
 
         assert x.shape == (10, 2)
         assert not np.isnan(x.numpy()).any()

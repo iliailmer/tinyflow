@@ -14,9 +14,8 @@ Usage:
     uv run scripts/generate.py dataset=fashion_mnist generation.model_path=model_fashion_mnist_unet_linear.safetensors
     uv run scripts/generate.py dataset=cifar10 generation.model_path=model_cifar10_unet_linear.safetensors
 
-    # Animated GIF, class predictions, FID
+    # Animated GIF
     uv run scripts/generate.py generation.model_path=model.safetensors --animated
-    uv run scripts/generate.py generation.model_path=model.safetensors generation.show_predictions=true generation.compute_fid=true
 
     # Override grid size and steps
     uv run scripts/generate.py generation.model_path=model.safetensors generation.grid_size=3 generation.num_steps=50
@@ -35,45 +34,20 @@ import numpy as np
 from _common import create_solver, detect_time_embed_dim
 from omegaconf import DictConfig, OmegaConf
 from PIL import Image
-from tinygrad import TinyJit
 from tinygrad.tensor import Tensor as T
 from tqdm import tqdm
 
-from tinyflow.metrics import get_feature_extractor
 from tinyflow.nn import NeuralNetwork, UNetTinygrad
+from tinyflow.solver import uniform_time_grid
 from tinyflow.trainer import BaseTrainer
-from tinyflow.utils import preprocess_time_cifar, preprocess_time_mnist, preprocess_time_moons
+from tinyflow.utils import (
+    preprocess_time_cifar,
+    preprocess_time_mnist,
+    preprocess_time_moons,
+    solve_with_snapshots,
+)
 
 plt.style.use("ggplot")
-
-# Class names for image datasets
-CLASS_NAMES = {
-    "mnist": ["0", "1", "2", "3", "4", "5", "6", "7", "8", "9"],
-    "fashion_mnist": [
-        "T-shirt/top",
-        "Trouser",
-        "Pullover",
-        "Dress",
-        "Coat",
-        "Sandal",
-        "Shirt",
-        "Sneaker",
-        "Bag",
-        "Ankle boot",
-    ],
-    "cifar10": [
-        "Airplane",
-        "Automobile",
-        "Bird",
-        "Cat",
-        "Deer",
-        "Dog",
-        "Frog",
-        "Horse",
-        "Ship",
-        "Truck",
-    ],
-}
 
 
 def create_model(cfg: DictConfig):
@@ -125,131 +99,6 @@ def get_dataset_config(cfg: DictConfig):
         raise ValueError(f"Unknown dataset type: {dataset_type}")
 
 
-def compute_fid_for_generated(
-    generated_images: np.ndarray, dataset_name: str, cfg: DictConfig
-) -> float | None:
-    """
-    Compute FID score between generated images and real dataset images.
-
-    Args:
-        generated_images: Generated images, shape (n, channels, H, W), normalized to [0, 1]
-        dataset_name: Dataset name (mnist, fashion_mnist, cifar10)
-        cfg: Configuration object
-
-    Returns:
-        FID score or None if not available
-    """
-    try:
-        from tinyflow.dataloader import CIFAR10Loader, FashionMNISTLoader, MNISTLoader
-        from tinyflow.metrics import calculate_fid
-
-        # Load classifier for FID
-        classifier = get_feature_extractor(dataset_name)
-
-        if not classifier._weights_loaded:
-            print(f"Warning: FID classifier weights not found for {dataset_name}")
-            print(f"Run: uv run scripts/train_fid_classifier.py --dataset {dataset_name}")
-            return None
-
-        # Load real images from dataset
-        num_samples = len(generated_images)
-        print(f"Loading {num_samples} real images from {dataset_name}...")
-
-        if dataset_name == "mnist":
-            dataloader = MNISTLoader(
-                path="dataset/mnist/trainset/trainingSet/*/*.jpg",
-                batch_size=64,
-                shuffle=True,
-                flatten=False,
-            )
-        elif dataset_name == "fashion_mnist":
-            dataloader = FashionMNISTLoader(
-                path="dataset/fashion_mnist",
-                batch_size=64,
-                shuffle=True,
-                flatten=False,
-                train=True,
-            )
-        elif dataset_name == "cifar10":
-            dataloader = CIFAR10Loader(
-                path="dataset/cifar10/cifar-10-batches-py",
-                batch_size=64,
-                shuffle=True,
-                train=True,
-            )
-        else:
-            print(f"Unknown dataset: {dataset_name}")
-            return None
-
-        # Collect real images
-        real_images = []
-        for batch_images, _ in dataloader:
-            real_images.append(batch_images)
-            if len(np.concatenate(real_images, axis=0)) >= num_samples:
-                break
-
-        real_images = np.concatenate(real_images, axis=0)[:num_samples]
-
-        # Compute FID
-        fid_score = calculate_fid(
-            real_images, generated_images, feature_extractor=classifier, batch_size=64
-        )
-
-        return fid_score
-
-    except Exception as e:
-        print(f"Error computing FID: {e}")
-        import traceback
-
-        traceback.print_exc()
-        return None
-
-
-def classify_images(images_np: np.ndarray, dataset_name: str):
-    """
-    Classify generated images and return predictions.
-
-    Args:
-        images_np: Generated images, shape (n, channels, H, W), normalized to [0, 1]
-        dataset_name: Dataset name (mnist, fashion_mnist, cifar10)
-
-    Returns:
-        List of tuples (class_idx, class_name, confidence) or None if classifier not available
-    """
-    try:
-        # Load classifier
-        classifier = get_feature_extractor(dataset_name)
-
-        # Check if weights are loaded
-        if not classifier._weights_loaded:
-            print(f"Warning: Classifier weights not found for {dataset_name}")
-            print(f"Run: uv run scripts/train_fid_classifier.py --dataset {dataset_name}")
-            return None
-
-        # Run inference
-        with T.train(False):
-            images_tensor = T(images_np)
-            logits = classifier.model(images_tensor)
-            probs = logits.softmax(axis=-1)
-
-            # Get predictions
-            class_indices = probs.numpy().argmax(axis=-1)
-            confidences = probs.numpy().max(axis=-1)
-
-        # Get class names
-        class_names = CLASS_NAMES.get(dataset_name, [str(i) for i in range(10)])
-
-        results = []
-        for idx, conf in zip(class_indices, confidences, strict=False):
-            results.append((int(idx), class_names[idx], float(conf)))
-
-        return results
-
-    except Exception as e:
-        print(f"Error classifying images: {e}")
-        return None
-
-
 def generate_image_grid(cfg: DictConfig, model, solver, dataset_config):
     """Generate a static grid of samples."""
     grid_size = cfg.generation.grid_size
@@ -262,39 +111,12 @@ def generate_image_grid(cfg: DictConfig, model, solver, dataset_config):
     T.training = False
     batch_size = grid_size * grid_size
     shape = (batch_size,) + dataset_config["shape"]
-    x = T.randn(*shape)
-    h_step = 1.0 / num_steps
-
-    # JIT compile the solver step for better performance
-    @TinyJit
-    def jit_step(h, t, x):
-        return solver.sample(h, t, x)
-
-    # Solve ODE from t=0 to t=1
-    for step in tqdm(range(num_steps), desc="Generating"):
-        t = (T.zeros(1) + step * h_step).contiguous()
-        x = jit_step(h_step, t, x)
-
-    # Ensure final result is realized before conversion
-    x.realize()
+    x = solver.solve(T.randn(*shape), uniform_time_grid(num_steps))
 
     # Convert to numpy and normalize
     x_np = x.numpy()
     x_np = (x_np - x_np.min()) / (x_np.max() - x_np.min() + 1e-8)
     x_np = np.clip(x_np, 0, 1)
-
-    # Compute FID if enabled
-    if cfg.generation.get("compute_fid", False):
-        print("\nComputing FID score...")
-        fid_score = compute_fid_for_generated(x_np, dataset_name, cfg)
-        if fid_score is not None:
-            print(f"FID Score: {fid_score:.4f}")
-
-    # Classify generated images if enabled
-    predictions = None
-    if cfg.generation.get("show_predictions", False):
-        print("Classifying generated images...")
-        predictions = classify_images(x_np, dataset_name)
 
     # Plot grid
     fig, axes = plt.subplots(grid_size, grid_size, figsize=(10, 10))
@@ -302,10 +124,6 @@ def generate_image_grid(cfg: DictConfig, model, solver, dataset_config):
         axes = np.array([[axes]])
     elif len(axes.shape) == 1:
         axes = axes.reshape(-1, 1)
-
-    # Add FID score as figure title if computed
-    if cfg.generation.get("compute_fid", False) and fid_score is not None:
-        fig.suptitle(f"FID Score: {fid_score:.2f}", fontsize=16, fontweight="bold", y=0.98)
 
     for i in range(grid_size):
         for j in range(grid_size):
@@ -318,12 +136,6 @@ def generate_image_grid(cfg: DictConfig, model, solver, dataset_config):
             else:
                 img = x_np[idx, 0]
                 ax.imshow(img, cmap=dataset_config["cmap"])
-
-            # Add prediction label if available
-            if predictions is not None:
-                _, class_name, confidence = predictions[idx]
-                label = f"{class_name}\n{confidence:.1%}"
-                ax.set_title(label, fontsize=12, pad=4, fontweight="bold")
 
             ax.axis("off")
 
@@ -357,76 +169,44 @@ def generate_image_animation(cfg: DictConfig, model, solver, dataset_config):
     T.training = False
     batch_size = grid_size * grid_size
     shape = (batch_size,) + dataset_config["shape"]
-    x = T.randn(*shape)
-    h_step = 1.0 / num_steps
-
-    # Determine which steps to capture
-    capture_steps = np.linspace(0, num_steps - 1, num_frames, dtype=int)
+    capture_steps = set(np.linspace(1, num_steps, min(num_frames, num_steps)).round().astype(int))
     frames = []
 
-    # JIT compile the solver step for better performance
-    @TinyJit
-    def jit_step(h, t, x):
-        return solver.sample(h, t, x)
+    def capture_frame(i, t, x_t):
+        if i + 1 not in capture_steps:
+            return
+        x_np = x_t.numpy()
+        x_normalized = (x_np - x_np.min()) / (x_np.max() - x_np.min() + 1e-8)
+        x_normalized = np.clip(x_normalized, 0, 1)
 
-    # Solve ODE and capture frames
-    for step in tqdm(range(num_steps), desc="Generating animation"):
-        t = (T.zeros(1) + step * h_step).contiguous()
-        x = jit_step(h_step, t, x)
+        fig, axes = plt.subplots(grid_size, grid_size, figsize=(8, 8))
+        fig.suptitle(f"t = {t:.2f}", fontsize=16, y=0.98)
 
-        # Capture frame at specified steps
-        if step in capture_steps:
-            # Ensure tensor is realized before capturing to avoid memory accumulation
-            x.realize()
-            x_np = x.numpy()
-            x_normalized = (x_np - x_np.min()) / (x_np.max() - x_np.min() + 1e-8)
-            x_normalized = np.clip(x_normalized, 0, 1)
+        if grid_size == 1:
+            axes = np.array([[axes]])
+        elif len(axes.shape) == 1:
+            axes = axes.reshape(-1, 1)
 
-            # Classify if at final step and predictions enabled
-            predictions = None
-            if cfg.generation.get("show_predictions", False) and step == capture_steps[-1]:
-                predictions = classify_images(x_normalized, dataset_name)
+        for row in range(grid_size):
+            for col in range(grid_size):
+                idx = row * grid_size + col
+                ax = axes[row, col]
 
-            # Create grid image
-            fig, axes = plt.subplots(grid_size, grid_size, figsize=(8, 8))
-            fig.suptitle(f"t = {step / num_steps:.2f}", fontsize=16, y=0.98)
+                if dataset_config["is_color"]:
+                    ax.imshow(x_normalized[idx].transpose(1, 2, 0))
+                else:
+                    ax.imshow(x_normalized[idx, 0], cmap=dataset_config["cmap"])
 
-            if grid_size == 1:
-                axes = np.array([[axes]])
-            elif len(axes.shape) == 1:
-                axes = axes.reshape(-1, 1)
+                ax.axis("off")
 
-            for i in range(grid_size):
-                for j in range(grid_size):
-                    idx = i * grid_size + j
-                    ax = axes[i, j]
+        plt.tight_layout()
 
-                    if dataset_config["is_color"]:
-                        img = x_normalized[idx].transpose(1, 2, 0)
-                        ax.imshow(img)
-                    else:
-                        img = x_normalized[idx, 0]
-                        ax.imshow(img, cmap=dataset_config["cmap"])
+        fig.canvas.draw()
+        frame = np.asarray(fig.canvas.buffer_rgba())[:, :, :3]
+        frames.append(Image.fromarray(frame))
+        plt.close(fig)
 
-                    # Add prediction label if available (only on final frame)
-                    if predictions is not None:
-                        class_idx, class_name, confidence = predictions[idx]
-                        label = f"{class_name}\n{confidence:.1%}"
-                        ax.set_title(label, fontsize=6, pad=2)
-
-                    ax.axis("off")
-
-            plt.tight_layout()
-
-            # Convert plot to image
-            fig.canvas.draw()
-            # Use buffer_rgba() for compatibility across backends
-            buf = fig.canvas.buffer_rgba()
-            frame = np.asarray(buf)
-            # Convert RGBA to RGB
-            frame = frame[:, :, :3]
-            frames.append(Image.fromarray(frame))
-            plt.close(fig)
+    solver.solve(T.randn(*shape), uniform_time_grid(num_steps), on_step=capture_frame)
 
     # Save as GIF
     os.makedirs(cfg.generation.output_dir, exist_ok=True)
@@ -482,7 +262,6 @@ def generate_moons_grid(cfg: DictConfig, solver):
     """Generate static visualization with multiple time snapshots."""
     n_samples = cfg.generation.n_samples
     num_steps = cfg.generation.num_steps
-    step_size = cfg.generation.step_size
     num_plots = cfg.generation.num_plots
 
     print(f"Generating {n_samples} samples with {num_plots} snapshots...")
@@ -490,37 +269,17 @@ def generate_moons_grid(cfg: DictConfig, solver):
     # Initialize samples
     T.training = False
     x = T.randn(n_samples, 2)
-    time_grid = T.linspace(0, 1, num_steps)
-    sample_every = time_grid.shape[0] // num_plots
+    snapshots = solve_with_snapshots(x, solver, uniform_time_grid(num_steps), num_plots)
 
-    # Store snapshots to visualize
-    snapshots = []
-    snapshot_times = []
-
-    # JIT compile the solver step for better performance
-    @TinyJit
-    def jit_step(step_size, t, x):
-        return solver.sample(step_size, t, x)
-
-    # Generate all samples first
-    for idx in tqdm(range(int(time_grid.shape[0])), desc="Generating samples"):
-        t = time_grid[idx].contiguous()
-        x = jit_step(step_size, t, x)
-
-        # Store reference for visualization
-        if (idx + 1) % sample_every == 0:
-            snapshots.append(x)
-            snapshot_times.append(t)
-
-    # Visualize all snapshots
-    _, ax = plt.subplots(1, num_plots, figsize=(30, 4), sharex=True, sharey=True)
-    for i, (snapshot, t) in enumerate(zip(snapshots, snapshot_times, strict=False)):
-        x_np = snapshot.numpy()
-        ax[i].scatter(x_np[:, 0], x_np[:, 1], s=20, alpha=0.6)
-        ax[i].set_title(f"t={t.numpy():.2f}")
-        ax[i].set_xlim(-3, 3)
-        ax[i].set_ylim(-3, 3)
-        ax[i].grid(True, alpha=0.3)
+    _, ax = plt.subplots(
+        1, len(snapshots), figsize=(30, 4), sharex=True, sharey=True, squeeze=False
+    )
+    for i, (t, x_np) in enumerate(snapshots):
+        ax[0, i].scatter(x_np[:, 0], x_np[:, 1], s=20, alpha=0.6)
+        ax[0, i].set_title(f"t={t:.2f}")
+        ax[0, i].set_xlim(-3, 3)
+        ax[0, i].set_ylim(-3, 3)
+        ax[0, i].grid(True, alpha=0.3)
 
     plt.tight_layout()
 
@@ -540,7 +299,6 @@ def generate_moons_animation(cfg: DictConfig, solver):
     """Generate an animated GIF of the generation process."""
     n_samples = cfg.generation.n_samples
     num_steps = cfg.generation.num_steps
-    step_size = cfg.generation.step_size
     num_plots = cfg.generation.num_plots
     fps = cfg.generation.fps
 
@@ -549,38 +307,14 @@ def generate_moons_animation(cfg: DictConfig, solver):
     # Initialize samples
     T.training = False
     x = T.randn(n_samples, 2)
-    time_grid = T.linspace(0, 1, num_steps)
-    sample_every = time_grid.shape[0] // num_plots
-
-    # Store snapshots to visualize
-    snapshots = []
-    snapshot_times = []
-
-    # JIT compile the solver step for better performance
-    @TinyJit
-    def jit_step(step_size, t, x):
-        return solver.sample(step_size, t, x)
-
-    # Generate all samples first
-    for idx in tqdm(range(int(time_grid.shape[0])), desc="Generating animation"):
-        t = time_grid[idx].contiguous()
-        x = jit_step(step_size, t, x)
-
-        # Store reference for visualization
-        if (idx + 1) % sample_every == 0:
-            snapshots.append(x)
-            snapshot_times.append(t)
+    snapshots = solve_with_snapshots(x, solver, uniform_time_grid(num_steps), num_plots)
 
     # Create frames
     frames = []
-    for snapshot, t in tqdm(
-        zip(snapshots, snapshot_times, strict=False), desc="Creating frames", total=len(snapshots)
-    ):
-        x_np = snapshot.numpy()
-
+    for t, x_np in tqdm(snapshots, desc="Creating frames"):
         fig, ax = plt.subplots(figsize=(8, 8))
         ax.scatter(x_np[:, 0], x_np[:, 1], s=20, alpha=0.6)
-        ax.set_title(f"t = {t.numpy():.2f}", fontsize=16)
+        ax.set_title(f"t = {t:.2f}", fontsize=16)
         ax.set_xlim(-3, 3)
         ax.set_ylim(-3, 3)
         ax.grid(True, alpha=0.3)

@@ -1,7 +1,8 @@
+import numpy as np
 import pytest
 from tinygrad.tensor import Tensor as T
 
-from tinyflow.solver import DDIM, RK4, Euler, Heun
+from tinyflow.solver import DDIM, RK4, Euler, Heun, MidpointSolver, uniform_time_grid
 from tinyflow.utils import preprocess_time_moons
 
 
@@ -132,40 +133,83 @@ class TestDDIM:
         # Should be identical (deterministic)
         assert abs(x1_run1.numpy()[0] - x1_run2.numpy()[0]) < 1e-6
 
-    def test_custom_timestep_schedule(self):
-        """Test DDIM with custom timestep schedule"""
 
-        def constant_rhs(x, t):
+class TestSolve:
+    def test_uniform_time_grid(self):
+        grid = uniform_time_grid(4)
+        assert np.allclose(grid, [0.0, 0.25, 0.5, 0.75, 1.0])
+
+    def test_uniform_time_grid_rejects_zero_steps(self):
+        with pytest.raises(ValueError):
+            uniform_time_grid(0)
+
+    def test_rejects_single_point_grid(self):
+        with pytest.raises(ValueError):
+            Euler(rhs_fn=lambda x, t: x).solve(T.ones(1), [0.0])
+
+    @pytest.mark.parametrize("jit", [True, False])
+    @pytest.mark.parametrize("solver_cls", [Euler, Heun, MidpointSolver, RK4, DDIM])
+    def test_constant_velocity_covers_unit_interval(self, solver_cls, jit):
+        """dx/dt = 1 from t=0 to t=1 moves x by exactly 1 for any number of steps"""
+        solver = solver_cls(rhs_fn=lambda x, t: T.ones_like(x))
+        x = solver.solve(T.zeros(3), uniform_time_grid(5), jit=jit)
+        assert np.allclose(x.numpy(), 1.0, atol=1e-5)
+
+    @pytest.mark.parametrize("solver_cls", [Euler, Heun, MidpointSolver, RK4])
+    def test_rhs_times_stay_in_unit_interval(self, solver_cls):
+        """No stage evaluates the velocity field outside the training range [0, 1]"""
+        seen = []
+
+        def rhs(x, t):
+            seen.append(float(t.numpy().max()))
             return T.ones_like(x)
 
-        solver = DDIM(rhs_fn=constant_rhs, eta=0.0)
+        solver_cls(rhs_fn=rhs).solve(T.zeros(2), uniform_time_grid(5), jit=False)
+        assert min(seen) >= 0.0
+        assert max(seen) <= 1.0 + 1e-6
 
-        # Custom schedule: [0, 0.5, 1.0] instead of uniform [0, 0.1, 0.2, ...]
-        time_grid = T([0.0, 0.5, 1.0])
-        x_init = T.zeros(1)
+    def test_euler_evaluates_at_left_grid_points(self):
+        seen = []
 
-        x_final = solver.solve(x_init, time_grid)
+        def rhs(x, t):
+            seen.append(float(t.numpy()[0]))
+            return T.ones_like(x)
 
-        # With constant velocity of 1, x should increase by ~1.0 total
-        assert abs(x_final.numpy()[0] - 1.0) < 0.1
+        Euler(rhs_fn=rhs).solve(T.zeros(1), uniform_time_grid(4), jit=False)
+        assert np.allclose(seen, [0.0, 0.25, 0.5, 0.75])
 
-    def test_few_steps_sampling(self):
-        """Test DDIM can work with very few steps"""
+    def test_non_uniform_grid(self):
+        """dx/dt = t integrated exactly by the trapezoid rule gives 0.5"""
+        solver = Heun(rhs_fn=lambda x, t: t.expand(*x.shape))
+        x = solver.solve(T.zeros(2), [0.0, 0.1, 0.4, 1.0])
+        assert np.allclose(x.numpy(), 0.5, atol=1e-5)
 
-        def linear_rhs(x, t):
-            return x * 0.5  # Slower growth
+    def test_accepts_tensor_grid(self):
+        solver = Euler(rhs_fn=lambda x, t: T.ones_like(x))
+        x = solver.solve(T.zeros(1), T([0.0, 0.5, 1.0]))
+        assert abs(x.numpy()[0] - 1.0) < 1e-5
 
-        solver = DDIM(rhs_fn=linear_rhs, eta=0.0)
+    def test_on_step_reports_right_grid_points(self):
+        calls = []
+        solver = Euler(rhs_fn=lambda x, t: T.ones_like(x))
+        solver.solve(
+            T.zeros(1),
+            uniform_time_grid(4),
+            on_step=lambda i, t, x: calls.append((i, t, x.numpy()[0])),
+        )
+        assert [c[0] for c in calls] == [0, 1, 2, 3]
+        assert np.allclose([c[1] for c in calls], [0.25, 0.5, 0.75, 1.0])
+        assert np.allclose([c[2] for c in calls], [0.25, 0.5, 0.75, 1.0], atol=1e-5)
 
-        # Only 5 steps from 0 to 1
-        time_grid = T.linspace(0, 1, 5)
-        x_init = T.ones(1)
-
-        x_final = solver.solve(x_init, time_grid)
-
-        # Should still produce reasonable result
-        assert x_final.shape == (1,)
-        assert x_final.numpy()[0] > 0  # Should be positive
+    def test_jit_matches_no_jit(self):
+        solver = RK4(rhs_fn=lambda x, t: x * t)
+        x0 = T([1.0, 2.0])
+        grid = uniform_time_grid(6)
+        assert np.allclose(
+            solver.solve(x0, grid, jit=True).numpy(),
+            solver.solve(x0, grid, jit=False).numpy(),
+            atol=1e-5,
+        )
 
 
 if __name__ == "__main__":

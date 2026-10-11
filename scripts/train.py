@@ -43,6 +43,7 @@ from tinyflow.dataloader import CIFAR10Loader, FashionMNISTLoader, MNISTLoader
 from tinyflow.losses import mse
 from tinyflow.nn import NeuralNetwork, UNetCIFAR10, UNetCIFAR10Large, UNetMNIST
 from tinyflow.path import AffinePath
+from tinyflow.solver import uniform_time_grid
 from tinyflow.time_sampler import BaseTimeSampler, LogitNormalSampler, UniformTimeSampler
 from tinyflow.trainer import CIFAR10Trainer, MNISTTrainer
 from tinyflow.utils import visualize_moons
@@ -224,15 +225,13 @@ def train_moons(cfg: DictConfig, model_name: str):
     if cfg.training.get("generate_samples", True):
         num_samples = cfg.training.get("n_samples", 100)
         x = T.randn(num_samples, 2)
-        h_step = cfg.training.step_size
-        time_grid = T.linspace(0, 1, int(1 / h_step))
+        time_grid = uniform_time_grid(round(1 / cfg.training.step_size))
 
         solver = create_solver(cfg, model, get_preprocess_hook(cfg))
         visualize_moons(
             x,
             solver=solver,
             time_grid=time_grid,
-            h_step=h_step,
             num_plots=cfg.training.get("num_plots", 10),
         )
 

@@ -24,14 +24,11 @@ Flow matching is a modern approach to generative modeling that learns to transfo
 - **Architectures:** MLP networks, UNet for images
 - **Datasets:** MNIST, Fashion MNIST, CIFAR-10, 2D toy datasets (moons)
 - **Time Embeddings:** Sinusoidal/Fourier embeddings for temporal conditioning
-- **Metrics:** FID (Fréchet Inception Distance) with trained classifiers
 - **Experiment Tracking:** Hydra configuration + MLflow logging
-- **Generation Tools:** Class predictions, FID computation, animated generation
+- **Generation Tools:** Static sample grids, animated GIFs
 
-### Evaluation & Visualization
+### Visualization
 
-- **FID Metric:** Measure generation quality quantitatively
-- **Classifier Predictions:** Show predicted class and confidence on generated images
 - **Animated Generation:** Visualize the flow from noise to data
 - **MLflow Integration:** Track experiments, hyperparameters, and metrics
 
@@ -70,12 +67,6 @@ uv run scripts/train.py dataset=cifar10 model=unet
 # Generate static grid for MNIST
 uv run scripts/generate.py generation.model_path=model_mnist_unet_linear.safetensors
 
-# Generate with class predictions and FID score
-uv run scripts/generate.py \
-    generation.model_path=model_mnist_unet_linear.safetensors \
-    generation.show_predictions=true \
-    generation.compute_fid=true
-
 # Generate animated GIF showing the flow process
 uv run scripts/generate.py \
     generation.model_path=model_mnist_unet_linear.safetensors \
@@ -83,19 +74,6 @@ uv run scripts/generate.py \
 
 # Generate for 2D moons dataset (switch the base config)
 uv run scripts/generate.py --config-name=generate_moons_config generation.model_path=model_moons_neural_network_linear.safetensors
-```
-
-### Training FID Classifier (for evaluation)
-
-```bash
-# Train classifier for MNIST
-uv run scripts/train_fid_classifier.py --dataset mnist --epochs 10
-
-# Train classifier for Fashion MNIST
-uv run scripts/train_fid_classifier.py --dataset fashion_mnist --epochs 10
-
-# Train classifier for CIFAR-10
-uv run scripts/train_fid_classifier.py --dataset cifar10 --epochs 10
 ```
 
 Generated outputs are saved in `outputs/generated/` directory.
@@ -108,7 +86,6 @@ tinyflow/
 ├── losses.py                  # Loss functions
 ├── trainer.py                 # Training loops with MLflow integration
 ├── dataloader.py              # Dataset loaders (MNIST, Fashion MNIST, CIFAR-10)
-├── metrics.py                 # FID metric and classifiers
 ├── utils.py                   # Visualization utilities
 ├── path/
 │   ├── path.py                # Flow matching paths (Affine, OT)
@@ -135,8 +112,7 @@ configs/                       # Hydra configuration files
 
 scripts/
 ├── train.py                   # Unified training entry point (moons + image datasets)
-├── generate.py                # Unified generation entry point (predictions/FID/animation)
-├── train_fid_classifier.py    # Train FID classifier with validation
+├── generate.py                # Unified generation entry point (static grid / animation)
 └── download_datasets.py       # Dataset download helper
 
 experiments/                   # ODE-solver and time-schedule research scripts
@@ -181,7 +157,7 @@ uv run mlflow ui
 
 MLflow tracks:
 - Hyperparameters (model, scheduler, optimizer settings)
-- Metrics (loss, FID score)
+- Metrics (loss, learning rate)
 - Artifacts (generated images, loss curves)
 - Tags (model type, dataset)
 

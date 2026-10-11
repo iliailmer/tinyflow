@@ -1,101 +1,84 @@
+import os
 import pickle
 
+import numpy as np
 from loguru import logger
 from matplotlib import pyplot as plt
-from tinygrad import TinyJit
-from tqdm.auto import tqdm
 
 from tinyflow.nn import Tensor
 
 
-@logger.catch
-def visualize_moons(
-    x, solver, time_grid, h_step, num_plots=10, save_path="outputs/moons_generation.png"
-):
-    """Optimized moons visualization with minimal tensor realizations."""
-    _, ax = plt.subplots(1, num_plots, figsize=(30, 4), sharex=True, sharey=True)
-    sample_every = time_grid.shape[0] // num_plots
+def solve_with_snapshots(x, solver, time_grid, num_snapshots: int):
+    """
+    Integrate over time_grid and keep evenly spaced intermediate states.
 
+    Returns:
+        List of (t, state as numpy array). The last entry is the final state.
+    """
+    num_steps = len(time_grid) - 1
+    keep = set(np.linspace(1, num_steps, min(num_snapshots, num_steps)).round().astype(int))
     snapshots = []
-    snapshot_times = []
 
-    # JIT compile the solver step for better performance
-    @TinyJit
-    def jit_step(h_step, t, x):
-        return solver.sample(h_step, t, x)
+    def on_step(i, t, x_t):
+        if i + 1 in keep:
+            snapshots.append((t, x_t.numpy()))
 
-    for idx in tqdm(range(int(time_grid.shape[0])), desc="Generating samples"):
-        t = time_grid[idx].contiguous()
-        x = jit_step(h_step, t, x)
+    solver.solve(x, time_grid, on_step=on_step)
+    return snapshots
 
-        if (idx + 1) % sample_every == 0:
-            snapshots.append(x)
-            snapshot_times.append(t)
 
-    for i, (snapshot, t) in enumerate(zip(snapshots, snapshot_times, strict=False)):
-        x_np = snapshot.numpy()
-        ax[i].scatter(x_np[:, 0], x_np[:, 1], s=20, alpha=0.6)  # Larger points, add transparency
-        ax[i].set_title(f"t={t.numpy():.2f}")
-        ax[i].set_xlim(-3, 3)  # Set consistent limits
-        ax[i].set_ylim(-3, 3)
-        ax[i].grid(True, alpha=0.3)
+def _save_snapshot_row(snapshots, draw, save_path: str) -> str:
+    _, axes = plt.subplots(
+        1, len(snapshots), figsize=(30, 4), sharex=True, sharey=True, squeeze=False
+    )
+    for ax, (t, x_np) in zip(axes[0], snapshots, strict=True):
+        draw(ax, x_np)
+        ax.set_title(f"t={t:.2f}")
 
     plt.tight_layout()
-
-    # Save to file
-    import os
-
     os.makedirs(os.path.dirname(save_path), exist_ok=True)
     plt.savefig(save_path, dpi=150, bbox_inches="tight")
     print(f"✓ Saved {save_path}")
     plt.close()
-
     return save_path
 
 
 @logger.catch
-def visualize_mnist(
-    x, solver, time_grid, h_step, num_plots=10, save_path="outputs/mnist_generation.png"
+def visualize_moons(x, solver, time_grid, num_plots=10, save_path="outputs/moons_generation.png"):
+    def draw(ax, x_np):
+        ax.scatter(x_np[:, 0], x_np[:, 1], s=20, alpha=0.6)
+        ax.set_xlim(-3, 3)
+        ax.set_ylim(-3, 3)
+        ax.grid(True, alpha=0.3)
+
+    snapshots = solve_with_snapshots(x, solver, time_grid, num_plots)
+    return _save_snapshot_row(snapshots, draw, save_path)
+
+
+@logger.catch
+def visualize_mnist(x, solver, time_grid, num_plots=10, save_path="outputs/mnist_generation.png"):
+    def draw(ax, x_np):
+        img = x_np[0].reshape((28, 28))
+        ax.imshow((img - img.min()) / (img.max() - img.min() + 1e-8), cmap="gray")
+        ax.axis("off")
+
+    snapshots = solve_with_snapshots(x, solver, time_grid, num_plots)
+    return _save_snapshot_row(snapshots, draw, save_path)
+
+
+@logger.catch
+def visualize_cifar10(
+    x, solver, time_grid, num_plots=10, save_path="outputs/cifar10_generation.png"
 ):
-    """Optimized MNIST visualization with minimal tensor realizations."""
-    _, ax = plt.subplots(1, num_plots, figsize=(30, 4), sharex=True, sharey=True)
-    sample_every = time_grid.shape[0] // num_plots
+    """Plot the first sample of x of shape (batch_size, 3, 32, 32) at intermediate times."""
 
-    snapshots = []
-    snapshot_times = []
+    def draw(ax, x_np):
+        img = x_np[0].transpose(1, 2, 0)
+        ax.imshow(np.clip((img - img.min()) / (img.max() - img.min() + 1e-8), 0, 1))
+        ax.axis("off")
 
-    # JIT compile the solver step for better performance
-    @TinyJit
-    def jit_step(h_step, t, x):
-        return solver.sample(h_step, t, x)
-
-    for idx in tqdm(range(int(time_grid.shape[0])), desc="Generating samples"):
-        t = time_grid[idx].contiguous()
-        x = jit_step(h_step, t, x)
-
-        # Store reference for visualization (still on GPU)
-        if (idx + 1) % sample_every == 0:
-            snapshots.append(x)
-            snapshot_times.append(t)
-
-    for i, (snapshot, t) in enumerate(zip(snapshots, snapshot_times, strict=False)):
-        x_np = snapshot.numpy()[0, :].reshape((28, 28))
-        x_normalized = (x_np - x_np.min()) / (x_np.max() - x_np.min() + 1e-8)
-        ax[i].imshow(x_normalized, cmap="gray")
-        ax[i].axis("off")
-        ax[i].set_title(f"t={t.numpy():.2f}")
-
-    plt.tight_layout()
-
-    # Save to file
-    import os
-
-    os.makedirs(os.path.dirname(save_path), exist_ok=True)
-    plt.savefig(save_path, dpi=150, bbox_inches="tight")
-    print(f"✓ Saved {save_path}")
-    plt.close()
-
-    return save_path
+    snapshots = solve_with_snapshots(x, solver, time_grid, num_plots)
+    return _save_snapshot_row(snapshots, draw, save_path)
 
 
 def unpickle(file):
@@ -117,62 +100,3 @@ def preprocess_time_mnist(t: Tensor, rhs_prev: Tensor):
 def preprocess_time_cifar(t: Tensor, rhs_prev: Tensor):
     t = t.reshape((1, 1))
     return t.repeat(rhs_prev.shape[0], 1)
-
-
-@logger.catch
-def visualize_cifar10(
-    x, solver, time_grid, h_step, num_plots=10, save_path="outputs/cifar10_generation.png"
-):
-    """
-    Optimized CIFAR-10 visualization with minimal tensor realizations.
-
-    Args:
-        x: Initial noise tensor of shape (batch_size, 3, 32, 32)
-        solver: ODE solver
-        time_grid: Time steps
-        h_step: Step size
-        num_plots: Number of intermediate visualizations
-        save_path: Path to save the visualization image
-    """
-    import os
-
-    import numpy as np
-
-    _, ax = plt.subplots(1, num_plots, figsize=(30, 4), sharex=True, sharey=True)
-    sample_every = time_grid.shape[0] // num_plots
-
-    snapshots = []
-    snapshot_times = []
-
-    # JIT compile the solver step for better performance
-    @TinyJit
-    def jit_step(h_step, t, x):
-        return solver.sample(h_step, t, x)
-
-    for idx in tqdm(range(int(time_grid.shape[0])), desc="Generating samples"):
-        t = time_grid[idx].contiguous()
-        x = jit_step(h_step, t, x)
-
-        if (idx + 1) % sample_every == 0:
-            snapshots.append(x)
-            snapshot_times.append(t)
-
-    for i, (snapshot, t) in enumerate(zip(snapshots, snapshot_times, strict=False)):
-        img = snapshot.numpy()[0, :].transpose(1, 2, 0)  # (3, 32, 32) -> (32, 32, 3)
-
-        img_normalized = (img - img.min()) / (img.max() - img.min() + 1e-8)
-        img_normalized = np.clip(img_normalized, 0, 1)
-
-        ax[i].imshow(img_normalized)
-        ax[i].axis("off")
-        ax[i].set_title(f"t={t.numpy():.2f}")
-
-    plt.tight_layout()
-
-    # Save to file
-    os.makedirs(os.path.dirname(save_path), exist_ok=True)
-    plt.savefig(save_path, dpi=150, bbox_inches="tight")
-    print(f"✓ Saved {save_path}")
-    plt.close()
-
-    return save_path

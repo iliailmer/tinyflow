@@ -23,7 +23,6 @@ import matplotlib.pyplot as plt
 import mlflow
 import numpy as np
 from _common import (
-    compute_fid_vs_real,
     detect_time_embed_dim,
     normalize_per_sample,
     per_sample_norm_mean,
@@ -168,14 +167,10 @@ def main():
         with mlflow.start_run(run_name=f"reference_NFE{args.reference_nfe}", nested=True):
             x_ref, info = integrate_fixed(model, preprocess_time_mnist, x0_ref, args.reference_nfe)
             x_ref_np = x_ref.numpy()
-            fid_ref = compute_fid_vs_real(x_ref_np, "mnist", args.n_samples)
             mlflow.log_params({"config": "reference", **info})
-            if fid_ref is not None:
-                mlflow.log_metric("fid", fid_ref)
             grid_path = "/tmp/adaptive_sampler_reference.png"
             save_grid_figure(x_ref_np, f"Reference NFE={args.reference_nfe}", grid_path)
             mlflow.log_artifact(grid_path)
-            print(f"reference NFE={args.reference_nfe}: fid={fid_ref}")
 
         for target in args.nfe_budgets:
             # adaptive runs to completion; the target only sets the nominal
@@ -195,7 +190,6 @@ def main():
                 )
                 actual_nfe = info["nfe"]
                 x_adapt_np = x_adapt.numpy()
-                fid_adapt = compute_fid_vs_real(x_adapt_np, "mnist", args.n_samples)
                 mlflow.log_params(
                     {
                         "config": "adaptive",
@@ -206,8 +200,6 @@ def main():
                         "kappa_every": args.kappa_every,
                     }
                 )
-                if fid_adapt is not None:
-                    mlflow.log_metric("fid", fid_adapt)
                 mlflow.log_metric("mean_dt", float(np.mean(info["dt"])))
                 mlflow.log_metric("mean_kappa", float(np.mean(info["kappa"])))
 
@@ -223,7 +215,7 @@ def main():
 
                 print(
                     f"adaptive target={target} -> actual steps={info['steps']}, "
-                    f"actual nfe={actual_nfe}: fid={fid_adapt}"
+                    f"actual nfe={actual_nfe}"
                 )
 
             # fixed baseline at the SAME actual NFE the adaptive run spent
@@ -233,14 +225,10 @@ def main():
             with mlflow.start_run(run_name=f"fixed_NFE{actual_nfe}", nested=True):
                 x_fixed, info = integrate_fixed(model, preprocess_time_mnist, x0, actual_nfe)
                 x_fixed_np = x_fixed.numpy()
-                fid_fixed = compute_fid_vs_real(x_fixed_np, "mnist", args.n_samples)
                 mlflow.log_params({"config": "fixed", "matched_to_target": target, **info})
-                if fid_fixed is not None:
-                    mlflow.log_metric("fid", fid_fixed)
                 grid_path = f"/tmp/adaptive_sampler_fixed_NFE{actual_nfe}.png"
                 save_grid_figure(x_fixed_np, f"Fixed NFE={actual_nfe}", grid_path)
                 mlflow.log_artifact(grid_path)
-                print(f"fixed NFE={actual_nfe} (matched to target={target}): fid={fid_fixed}")
 
         print(f"parent run: {parent.info.run_id}")
         print("view with: uv run mlflow ui  (tracking uri: sqlite:///mlflow.db)")

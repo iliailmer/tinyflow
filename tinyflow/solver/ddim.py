@@ -32,10 +32,8 @@ class DDIM(ODESolver):
     - Popular in Stable Diffusion and modern diffusion models
 
     Usage:
-        # Create custom timestep schedule (e.g., 20 steps instead of 100)
-        timesteps = torch.linspace(0, 1, 20)
         solver = DDIM(model)
-        x = solver.solve(x_init, timesteps)
+        x = solver.solve(x_init, uniform_time_grid(20))
     """
 
     def __init__(
@@ -91,21 +89,3 @@ class DDIM(ODESolver):
 
     def sample(self, h, t, rhs_prev):
         return self.step(h, t, rhs_prev)
-
-    def solve(self, x_init, time_grid):
-        """
-        Solve ODE with custom timestep schedule.
-
-        Args:
-            x_init: Initial condition x(0)
-            time_grid: Custom timestep schedule (e.g., [0, 0.1, 0.3, 0.6, 1.0])
-
-        Returns:
-            x(T) after following the ODE along the time_grid
-        """
-        x = x_init
-        for i in range(len(time_grid) - 1):
-            t = time_grid[i]
-            h = time_grid[i + 1] - time_grid[i]
-            x = self.step(h, t, x)
-        return x
