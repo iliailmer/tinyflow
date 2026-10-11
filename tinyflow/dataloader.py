@@ -29,59 +29,74 @@ def read_idx_labels(filename):
 
 
 class BaseDataloader:
-    def __init__(self) -> None:
-        pass
+    """
+    Iterates over (images, labels) batches of a dataset held in memory.
+
+    With shuffle=True the order changes on every pass. With drop_last=True the
+    last batch is dropped when it is smaller than batch_size, so every batch
+    has the same shape and len() is the number of batches a pass returns.
+    """
+
+    def __init__(
+        self,
+        images: np.ndarray,
+        labels: np.ndarray,
+        batch_size: int,
+        shuffle: bool = True,
+        drop_last: bool = True,
+    ) -> None:
+        if len(images) != len(labels):
+            raise ValueError(f"Got {len(images)} images and {len(labels)} labels")
+        self.images = images
+        self.labels = labels
+        self.batch_size = batch_size
+        self.shuffle = shuffle
+        self.drop_last = drop_last
+        self.index = 0
+        self._order = np.arange(len(images))
 
     def __len__(self) -> int:
-        raise NotImplementedError
+        full_batches, rest = divmod(len(self.images), self.batch_size)
+        return full_batches if self.drop_last or rest == 0 else full_batches + 1
 
-    def __getitem__(self, idx: int):
-        raise NotImplementedError
+    def __iter__(self):
+        self.index = 0
+        if self.shuffle:
+            self._order = np.random.permutation(len(self.images))
+        return self
+
+    def __next__(self) -> tuple[np.ndarray, np.ndarray]:
+        if self.index >= len(self) * self.batch_size:
+            raise StopIteration
+        batch = self._order[self.index : self.index + self.batch_size]
+        self.index += self.batch_size
+        return self.images[batch], self.labels[batch]
 
 
 class MNISTLoader(BaseDataloader):
+    """MNIST dataloader for a directory tree of JPG files, one directory per digit."""
+
     def __init__(
         self,
         path: str = "dataset/mnist/trainset/trainingSet/*/*.jpg",
         batch_size: int = 10,
         shuffle: bool = True,
         flatten: bool = True,
+        drop_last: bool = True,
     ) -> None:
-        super().__init__()
         self.path = path
-        self.mnist_files = glob(path)
-        self.shuffle = shuffle
-        self.batch_size = batch_size
-        if shuffle:
-            np.random.shuffle(self.mnist_files)
         self.flatten = flatten
-        self.index = 0
+        files = sorted(glob(path))
+        if not files:
+            raise FileNotFoundError(f"No MNIST images found at {path}")
 
-    def __len__(self):
-        return len(self.mnist_files) // self.batch_size
-
-    def __iter__(self):
-        self.index = 0
-        return self
-
-    def __next__(self):
-        if self.index >= len(self.mnist_files):
-            raise StopIteration
-        batch_files = self.mnist_files[self.index : self.index + self.batch_size]
-        self.index += self.batch_size
-        images = []
-        labels = []
-
-        for filepath in batch_files:
-            img = imread(filepath).astype(np.float32) / 255.0  # normalize
-            if self.flatten:
-                images.append(img.ravel())  # flatten
-            else:
-                images.append(img.reshape((1, img.shape[0], img.shape[1])))
-            label = int(os.path.basename(os.path.dirname(filepath)))
-            labels.append(label)
-
-        return np.stack(images), np.array(labels)
+        images = np.stack(
+            [imread(f) for f in tqdm(files, desc="Loading MNIST", leave=False)]
+        ).astype(np.float32)
+        images = images / 255.0
+        images = images.reshape(len(files), -1) if flatten else images[:, None, :, :]
+        labels = np.array([int(os.path.basename(os.path.dirname(f))) for f in files])
+        super().__init__(images, labels, batch_size, shuffle, drop_last)
 
 
 class FashionMNISTLoader(BaseDataloader):
@@ -98,64 +113,24 @@ class FashionMNISTLoader(BaseDataloader):
         shuffle: bool = True,
         flatten: bool = False,
         train: bool = True,
+        drop_last: bool = True,
     ) -> None:
-        super().__init__()
         self.path = path
-        self.batch_size = batch_size
-        self.shuffle = shuffle
         self.flatten = flatten
         self.train = train
-        self.index = 0
 
-        # Load images and labels from idx-ubyte format
-        if train:
-            images_file = os.path.join(path, "train-images-idx3-ubyte")
-            labels_file = os.path.join(path, "train-labels-idx1-ubyte")
-        else:
-            images_file = os.path.join(path, "t10k-images-idx3-ubyte")
-            labels_file = os.path.join(path, "t10k-labels-idx1-ubyte")
+        prefix = "train" if train else "t10k"
+        images = read_idx_images(os.path.join(path, f"{prefix}-images-idx3-ubyte"))
+        labels = read_idx_labels(os.path.join(path, f"{prefix}-labels-idx1-ubyte"))
 
-        print(f"Loading Fashion MNIST from {images_file}...")
-        self.images = read_idx_images(images_file).astype(np.float32) / 255.0
-        self.labels = read_idx_labels(labels_file)
-
-        # Reshape if not flattening
-        if not flatten:
-            self.images = self.images.reshape(-1, 1, 28, 28)
-        else:
-            self.images = self.images.reshape(-1, 28 * 28)
-
-        # Shuffle if requested
-        if shuffle:
-            indices = np.random.permutation(len(self.images))
-            self.images = self.images[indices]
-            self.labels = self.labels[indices]
-
-    def __len__(self):
-        return len(self.images) // self.batch_size
-
-    def __iter__(self):
-        self.index = 0
-        if self.shuffle:
-            indices = np.random.permutation(len(self.images))
-            self.images = self.images[indices]
-            self.labels = self.labels[indices]
-        return self
-
-    def __next__(self):
-        if self.index >= len(self.images):
-            raise StopIteration
-
-        batch_images = self.images[self.index : self.index + self.batch_size]
-        batch_labels = self.labels[self.index : self.index + self.batch_size]
-        self.index += self.batch_size
-
-        return batch_images, batch_labels
+        images = images.astype(np.float32) / 255.0
+        images = images.reshape(-1, 28 * 28) if flatten else images.reshape(-1, 1, 28, 28)
+        super().__init__(images, labels, batch_size, shuffle, drop_last)
 
 
 class CIFAR10Loader(BaseDataloader):
     """
-    CIFAR-10 dataloader with in-memory caching for fast training.
+    CIFAR-10 dataloader.
 
     The CIFAR-10 dataset is stored as pickle files with structure:
     {
@@ -171,87 +146,24 @@ class CIFAR10Loader(BaseDataloader):
         batch_size: int = 128,
         shuffle: bool = True,
         train: bool = True,
-        cache: bool = True,
         normalize: bool = True,
+        drop_last: bool = True,
     ):
-        super().__init__()
-        self.path = path
-        self.batch_size = batch_size
-        self.shuffle = shuffle
-        self.train = train
-        self.cache = cache
-        self.normalize = normalize
-        self.index = 0
-
-        if cache:
-            self._cached_data = self._load_all_images()
-        else:
-            self.batch_files = self._get_batch_files()
-
-    def _get_batch_files(self):
-        """Get list of batch files to load."""
-        if self.train:
-            return [os.path.join(self.path, f"data_batch_{i}") for i in range(1, 6)]
-        else:
-            return [os.path.join(self.path, "test_batch")]
-
-    def _load_all_images(self):
-        """Load all CIFAR-10 images into memory."""
         from tinyflow.utils import unpickle
 
+        self.path = path
+        self.train = train
+        self.normalize = normalize
+
+        names = [f"data_batch_{i}" for i in range(1, 6)] if train else ["test_batch"]
         all_images = []
         all_labels = []
+        for name in tqdm(names, desc="Loading CIFAR-10", leave=False):
+            data_dict = unpickle(os.path.join(path, name))
+            all_images.append(data_dict[b"data"].reshape(-1, 3, 32, 32).astype(np.float32))
+            all_labels.extend(data_dict[b"labels"])
 
-        batch_files = self._get_batch_files()
-        for batch_file in tqdm(batch_files, desc="Loading CIFAR-10"):
-            data_dict = unpickle(batch_file)
-
-            images = data_dict[b"data"]
-            labels = data_dict[b"labels"]
-            images = images.reshape(-1, 3, 32, 32)
-
-            images = images.astype(np.float32)
-            if self.normalize:
-                images = images / 255.0  # Normalize to [0, 1]
-
-            all_images.append(images)
-            all_labels.extend(labels)
-
-        all_images = np.concatenate(all_images, axis=0)
-        all_labels = np.array(all_labels)
-
-        if self.shuffle:
-            indices = np.random.permutation(len(all_images))
-            all_images = all_images[indices]
-            all_labels = all_labels[indices]
-
-        return all_images, all_labels
-
-    def __len__(self):
-        if self.cache:
-            images, _ = self._cached_data
-            return len(images) // self.batch_size
-        else:
-            return (len(self.batch_files) * 10000) // self.batch_size
-
-    def __iter__(self):
-        self.index = 0
-        if self.cache and self.shuffle:
-            images, labels = self._cached_data
-            indices = np.random.permutation(len(images))
-            self._cached_data = (images[indices], labels[indices])
-        return self
-
-    def __next__(self):
-        if not self.cache:
-            raise NotImplementedError("Non-cached mode not implemented yet")
-
-        images, labels = self._cached_data
-        if self.index >= len(images):
-            raise StopIteration
-
-        batch_images = images[self.index : self.index + self.batch_size]
-        batch_labels = labels[self.index : self.index + self.batch_size]
-        self.index += self.batch_size
-
-        return batch_images, batch_labels
+        images = np.concatenate(all_images, axis=0)
+        if normalize:
+            images = images / 255.0
+        super().__init__(images, np.array(all_labels), batch_size, shuffle, drop_last)
