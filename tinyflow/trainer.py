@@ -4,6 +4,7 @@ from collections.abc import Callable
 import mlflow
 from loguru import logger
 from matplotlib import pyplot as plt
+from tinygrad.engine.jit import TinyJit
 from tinygrad.helpers import Context
 from tinygrad.nn.optim import LAMB
 from tinygrad.nn.state import get_state_dict, load_state_dict, safe_load, safe_save
@@ -54,6 +55,8 @@ class BaseTrainer:
         self._losses = []
         self.global_step = 0
         self.accumulation_step = 0
+        self._jit_train_step = TinyJit(self._train_step)
+        self._jit_shape = None
 
     def next_batch(self):
         try:
@@ -106,37 +109,60 @@ class BaseTrainer:
         mlflow.log_figure(fig, "loss_curve.png")
         plt.close(fig)
 
+    def _train_step(self, x: T, t: T, x_0: T) -> T:
+        x_t, dx_t = self.path.sample(x_1=x, t=t, x_0=x_0)
+        self.optim.zero_grad()
+        loss = self.loss_fn(self.model(x_t, t), dx_t).backward()
+        # Realize the loss with the update. A loss.item() before optim.step() runs the
+        # forward pass twice, and a loss.item() after it hangs the Metal GPU.
+        return loss.realize(*self.optim.schedule_step())
+
+    def _accumulation_step(self, x: T, t: T, x_0: T) -> T:
+        x_t, dx_t = self.path.sample(x_1=x, t=t, x_0=x_0)
+        if self.accumulation_step == 0:
+            self.optim.zero_grad()
+
+        # Scale the loss so that accumulated gradients average over the steps
+        loss = (
+            self.loss_fn(self.model(x_t, t), dx_t) / self.gradient_accumulation_steps
+        ).backward()
+        self.accumulation_step += 1
+        if self.accumulation_step >= self.gradient_accumulation_steps:
+            self.accumulation_step = 0
+            loss.realize(*self.optim.schedule_step())
+        else:
+            loss.realize(*[p.grad for p in self.optim.params if p.grad is not None])
+        return loss * self.gradient_accumulation_steps
+
     @logger.catch(reraise=True)
     def epoch(self, epoch_idx: int | None):
         mean_loss_per_epoch = 0.0
         desc = f"Epoch {epoch_idx}" if epoch_idx is not None else ""
 
         for x_batch, _ in tqdm(self.dataloader, desc=desc, leave=False):
-            x = T(x_batch)
-            t = self.time_sampler.sample(x.shape[0], 1)
-            x_0 = T.randn(*x.shape)
-            x_t, dx_t = self.path.sample(x_1=x, t=t, x_0=x_0)
-            out = self.model(x_t, t)
+            x = T(x_batch).realize()
+            t = self.time_sampler.sample(x.shape[0], 1).realize()
+            x_0 = T.randn(*x.shape).realize()
 
-            if self.accumulation_step == 0:
-                self.optim.zero_grad()
+            if self._jit_shape is None:
+                self._jit_shape = x.shape
 
-            # Scale the loss so that accumulated gradients average over the steps
-            loss = self.loss_fn(out, dx_t) / self.gradient_accumulation_steps
-            loss.backward()
+            if self.gradient_accumulation_steps > 1:
+                loss = self._accumulation_step(x, t, x_0)
+            elif x.shape == self._jit_shape:
+                loss = self._jit_train_step(x, t, x_0)
+            else:
+                # The compiled step accepts one batch shape; a smaller last batch runs without JIT
+                loss = self._train_step(x, t, x_0)
 
-            loss_value = loss.item() * self.gradient_accumulation_steps
+            loss_value = loss.item()
             mean_loss_per_epoch += loss_value
             self._losses.append(loss_value)
 
-            self.accumulation_step += 1
-            if self.accumulation_step >= self.gradient_accumulation_steps:
-                self.optim.step()
-                self.accumulation_step = 0
-
-                if self.lr_scheduler is not None:
-                    self.lr_scheduler.step(self.global_step)
-                    self.global_step += 1
+            if self.accumulation_step == 0 and self.lr_scheduler is not None:
+                self.lr_scheduler.step(self.global_step)
+                self.optim.lr.realize()
+                self.global_step += 1
 
         mean_loss_per_epoch = mean_loss_per_epoch / len(self.dataloader)
         if epoch_idx is not None:
