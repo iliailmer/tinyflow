@@ -1,5 +1,9 @@
 # @package _global_
 
 model:
-  name: "UNetTinygrad"
+  name: "unet"
   type: "unet"
+  channels: [32, 64, 128, 256, 512]  # encoder levels, then the bottleneck
+  blocks_per_level: 1
+  attention_resolutions: []
+  time_embed_dim: 64

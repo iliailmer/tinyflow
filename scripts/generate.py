@@ -212,7 +212,7 @@ def run_image_generation(cfg: DictConfig, animated: bool):
         raise FileNotFoundError(f"Model file not found: {model_path}")
 
     print(f"\nLoading model from {model_path}...")
-    model = create_model(cfg, model_path)
+    model = create_model(cfg)
     BaseTrainer.load_model(model, model_path)
 
     # Note: Scheduler/path not needed at generation time - the model has already
@@ -331,7 +331,7 @@ def run_moons_generation(cfg: DictConfig, animated: bool):
         raise FileNotFoundError(f"Model file not found: {model_path}")
 
     print(f"\nLoading model from {model_path}...")
-    model = create_model(cfg, model_path)
+    model = create_model(cfg)
     BaseTrainer.load_model(model, model_path)
 
     # Note: Scheduler/path not needed at generation time - the model has already

@@ -23,7 +23,6 @@ import matplotlib.pyplot as plt
 import mlflow
 import numpy as np
 from _common import (
-    detect_time_embed_dim,
     normalize_per_sample,
     per_sample_norm_mean,
     save_grid_figure,
@@ -32,7 +31,7 @@ from _common import (
 from tinygrad.helpers import TRAINING
 from tinygrad.tensor import Tensor as T
 
-from tinyflow.nn import UNetTinygrad
+from tinyflow.nn import UNet
 from tinyflow.trainer import BaseTrainer
 from tinyflow.utils import preprocess_time
 
@@ -118,7 +117,9 @@ def make_dt_plot(log: dict, budget: int) -> plt.Figure:
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--model-path", default="weights/model_mnist_unet_linear.safetensors")
+    parser.add_argument(
+        "--model-path", default="weights/model_mnist_unet_ts_uniform_linear.safetensors"
+    )
     parser.add_argument(
         "--nfe-budgets",
         type=int,
@@ -140,9 +141,7 @@ def main():
     if not os.path.exists(args.model_path):
         raise FileNotFoundError(f"Model file not found: {args.model_path}")
 
-    in_ch = 1
-    time_embed_dim = detect_time_embed_dim(args.model_path, in_ch)
-    model = UNetTinygrad(in_ch, in_ch, time_embed_dim=time_embed_dim)
+    model = UNet(in_channels=1, image_size=28)
     BaseTrainer.load_model(model, args.model_path)
     TRAINING.value = 0
 

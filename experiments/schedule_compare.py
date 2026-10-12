@@ -23,7 +23,6 @@ import matplotlib.pyplot as plt
 import mlflow
 import numpy as np
 from _common import (
-    detect_time_embed_dim,
     make_grid,
     normalize_for_plot,
     save_grid_figure,
@@ -33,7 +32,7 @@ from tinygrad.helpers import TRAINING
 from tinygrad.tensor import Tensor as T
 from tqdm import tqdm
 
-from tinyflow.nn import UNetTinygrad
+from tinyflow.nn import UNet
 from tinyflow.trainer import BaseTrainer
 from tinyflow.utils import preprocess_time
 
@@ -70,7 +69,9 @@ def make_combined_figure(results, p: float, path: str):
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--model-path", default="weights/model_mnist_unet_linear.safetensors")
+    parser.add_argument(
+        "--model-path", default="weights/model_mnist_unet_ts_uniform_linear.safetensors"
+    )
     parser.add_argument("--steps", type=int, nargs="+", default=[10, 20, 50])
     parser.add_argument(
         "--p",
@@ -86,9 +87,7 @@ def main():
     if not os.path.exists(args.model_path):
         raise FileNotFoundError(f"Model file not found: {args.model_path}")
 
-    in_ch = 1
-    time_embed_dim = detect_time_embed_dim(args.model_path, in_ch)
-    model = UNetTinygrad(in_ch, in_ch, time_embed_dim=time_embed_dim)
+    model = UNet(in_channels=1, image_size=28)
     BaseTrainer.load_model(model, args.model_path)
     TRAINING.value = 0
 

@@ -2,10 +2,9 @@
 
 import numpy as np
 from omegaconf import DictConfig
-from tinygrad.nn.state import safe_load
 from tinygrad.tensor import Tensor as T
 
-from tinyflow.nn import NeuralNetwork, UNetCIFAR10, UNetCIFAR10Large, UNetMNIST
+from tinyflow.nn import NeuralNetwork, UNet
 from tinyflow.nn_utils.lr_scheduler import (
     CosineAnnealingLR,
     StepLRScheduler,
@@ -27,9 +26,11 @@ from tinyflow.time_sampler import (
 )
 from tinyflow.utils import preprocess_time
 
+IMAGE_SHAPES = {"mnist": (1, 28), "fashion_mnist": (1, 28), "cifar10": (3, 32)}
 
-def create_model(cfg: DictConfig, model_path: str | None = None):
-    """Create model from config. With model_path, size the time embedding to match that checkpoint."""
+
+def create_model(cfg: DictConfig):
+    """Create model from config."""
     model_type = cfg.model.type
     if model_type == "neural_network":
         return NeuralNetwork(
@@ -39,14 +40,16 @@ def create_model(cfg: DictConfig, model_path: str | None = None):
         )
 
     dataset_type = cfg.dataset.get("type", cfg.dataset.name)
-    if model_type == "unet" and dataset_type in ("mnist", "fashion_mnist", "cifar10"):
-        model_cls, channels = (UNetCIFAR10, 3) if dataset_type == "cifar10" else (UNetMNIST, 1)
-        if model_path is None:
-            return model_cls(channels, channels)
-        time_embed_dim = detect_time_embed_dim(model_path, in_channels=channels)
-        return model_cls(channels, channels, time_embed_dim=time_embed_dim)
-    if model_type == "unet_large" and dataset_type == "cifar10":
-        return UNetCIFAR10Large(in_channels=3, out_channels=3)
+    if model_type == "unet" and dataset_type in IMAGE_SHAPES:
+        in_channels, image_size = IMAGE_SHAPES[dataset_type]
+        return UNet(
+            in_channels=in_channels,
+            image_size=image_size,
+            channels=list(cfg.model.channels),
+            blocks_per_level=cfg.model.blocks_per_level,
+            attention_resolutions=list(cfg.model.attention_resolutions),
+            time_embed_dim=cfg.model.time_embed_dim,
+        )
 
     raise ValueError(f"Unknown model type: {model_type} with dataset type: {dataset_type}")
 
@@ -157,15 +160,3 @@ def create_solver(cfg: DictConfig, model):
         eta = cfg.solver.get("eta", 0.0)
         return DDIM(model, preprocess_hook=preprocess_time, eta=eta)
     raise ValueError(f"Unknown solver type: {solver_type}")
-
-
-def detect_time_embed_dim(model_path: str, in_channels: int) -> int:
-    """Detect time_embed_dim from saved weights by inspecting enc1.conv.weight shape."""
-    try:
-        state = safe_load(model_path)
-        key = "enc1.conv.weight"
-        if key in state:
-            return int(state[key].shape[1]) - in_channels
-    except Exception:
-        pass
-    return 64  # default

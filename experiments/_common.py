@@ -2,17 +2,7 @@
 
 import matplotlib.pyplot as plt
 import numpy as np
-from tinygrad.nn.state import safe_load
 from tinygrad.tensor import Tensor as T
-
-
-def detect_time_embed_dim(model_path: str, in_channels: int) -> int:
-    """Detect time_embed_dim from saved weights by inspecting enc1.conv.weight shape."""
-    state = safe_load(model_path)
-    key = "enc1.conv.weight"
-    if key in state:
-        return int(state[key].shape[1]) - in_channels
-    return 64
 
 
 def schedule_grid(N: int, p: float) -> np.ndarray:
