@@ -72,6 +72,11 @@ def get_dataset_config(cfg: DictConfig):
         raise ValueError(f"Unknown dataset type: {dataset_type}")
 
 
+def to_display(x_np: np.ndarray) -> np.ndarray:
+    """Clip images to the data range [0, 1]. No rescaling, so colours and contrast stay true."""
+    return np.clip(x_np, 0, 1)
+
+
 def generate_image_grid(cfg: DictConfig, model, solver, dataset_config):
     """Generate a static grid of samples."""
     grid_size = cfg.generation.grid_size
@@ -86,10 +91,7 @@ def generate_image_grid(cfg: DictConfig, model, solver, dataset_config):
     shape = (batch_size,) + dataset_config["shape"]
     x = solver.solve(T.randn(*shape), uniform_time_grid(num_steps))
 
-    # Convert to numpy and normalize
-    x_np = x.numpy()
-    x_np = (x_np - x_np.min()) / (x_np.max() - x_np.min() + 1e-8)
-    x_np = np.clip(x_np, 0, 1)
+    x_np = to_display(x.numpy())
 
     # Plot grid
     fig, axes = plt.subplots(grid_size, grid_size, figsize=(10, 10))
@@ -108,7 +110,7 @@ def generate_image_grid(cfg: DictConfig, model, solver, dataset_config):
                 ax.imshow(img)
             else:
                 img = x_np[idx, 0]
-                ax.imshow(img, cmap=dataset_config["cmap"])
+                ax.imshow(img, cmap=dataset_config["cmap"], vmin=0, vmax=1)
 
             ax.axis("off")
 
@@ -148,9 +150,7 @@ def generate_image_animation(cfg: DictConfig, model, solver, dataset_config):
     def capture_frame(i, t, x_t):
         if i + 1 not in capture_steps:
             return
-        x_np = x_t.numpy()
-        x_normalized = (x_np - x_np.min()) / (x_np.max() - x_np.min() + 1e-8)
-        x_normalized = np.clip(x_normalized, 0, 1)
+        x_normalized = to_display(x_t.numpy())
 
         fig, axes = plt.subplots(grid_size, grid_size, figsize=(8, 8))
         fig.suptitle(f"t = {t:.2f}", fontsize=16, y=0.98)
@@ -168,7 +168,7 @@ def generate_image_animation(cfg: DictConfig, model, solver, dataset_config):
                 if dataset_config["is_color"]:
                     ax.imshow(x_normalized[idx].transpose(1, 2, 0))
                 else:
-                    ax.imshow(x_normalized[idx, 0], cmap=dataset_config["cmap"])
+                    ax.imshow(x_normalized[idx, 0], cmap=dataset_config["cmap"], vmin=0, vmax=1)
 
                 ax.axis("off")
 
