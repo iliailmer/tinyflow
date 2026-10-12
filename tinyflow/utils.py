@@ -87,16 +87,7 @@ def unpickle(file):
     return dct
 
 
-def preprocess_time_moons(t: Tensor, rhs_prev: Tensor):
-    t = t.reshape((1, 1))
-    return t.repeat(rhs_prev.shape[0], 1)
-
-
-def preprocess_time_mnist(t: Tensor, rhs_prev: Tensor):
-    t = t.reshape((1, 1))
-    return t.repeat(rhs_prev.shape[0], 1)
-
-
-def preprocess_time_cifar(t: Tensor, rhs_prev: Tensor):
+def preprocess_time(t: Tensor, rhs_prev: Tensor):
+    """Repeat the scalar time t for each sample in the batch, shape (batch_size, 1)."""
     t = t.reshape((1, 1))
     return t.repeat(rhs_prev.shape[0], 1)

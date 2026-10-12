@@ -41,9 +41,6 @@ from tqdm import tqdm
 from tinyflow.solver import uniform_time_grid
 from tinyflow.trainer import BaseTrainer
 from tinyflow.utils import (
-    preprocess_time_cifar,
-    preprocess_time_mnist,
-    preprocess_time_moons,
     solve_with_snapshots,
 )
 
@@ -62,14 +59,12 @@ def get_dataset_config(cfg: DictConfig):
     if dataset_type in ["mnist", "fashion_mnist"]:
         return {
             "shape": (1, 28, 28),
-            "preprocess_hook": preprocess_time_mnist,
             "is_color": False,
             "cmap": "gray",
         }
     elif dataset_type == "cifar10":
         return {
             "shape": (3, 32, 32),
-            "preprocess_hook": preprocess_time_cifar,
             "is_color": True,
             "cmap": None,
         }
@@ -223,7 +218,7 @@ def run_image_generation(cfg: DictConfig, animated: bool):
     # Note: Scheduler/path not needed at generation time - the model has already
     # learned the velocity field during training
     dataset_config = get_dataset_config(cfg)
-    solver = create_solver(cfg, model, dataset_config["preprocess_hook"])
+    solver = create_solver(cfg, model)
 
     if animated:
         generate_image_animation(cfg, model, solver, dataset_config)
@@ -341,7 +336,7 @@ def run_moons_generation(cfg: DictConfig, animated: bool):
 
     # Note: Scheduler/path not needed at generation time - the model has already
     # learned the velocity field during training
-    solver = create_solver(cfg, model, preprocess_time_moons)
+    solver = create_solver(cfg, model)
 
     if animated:
         generate_moons_animation(cfg, solver)

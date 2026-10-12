@@ -3,7 +3,7 @@ import pytest
 from tinygrad.tensor import Tensor as T
 
 from tinyflow.solver import DDIM, RK4, Euler, Heun, MidpointSolver, uniform_time_grid
-from tinyflow.utils import preprocess_time_moons
+from tinyflow.utils import preprocess_time
 
 
 class TestEuler:
@@ -57,7 +57,7 @@ class TestRK4:
         def simple_rhs(x, t):
             return x * 0
 
-        solver = RK4(rhs_fn=simple_rhs, preprocess_hook=preprocess_time_moons)
+        solver = RK4(rhs_fn=simple_rhs, preprocess_hook=preprocess_time)
         result = solver.step(0.01, T.rand(1), T.randn(5, 2))
 
         assert result.shape == (5, 2)

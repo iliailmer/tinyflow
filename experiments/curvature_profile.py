@@ -31,7 +31,7 @@ from tqdm import tqdm
 
 from tinyflow.nn import NeuralNetwork, UNetCIFAR10, UNetMNIST
 from tinyflow.trainer import BaseTrainer
-from tinyflow.utils import preprocess_time_cifar, preprocess_time_mnist, preprocess_time_moons
+from tinyflow.utils import preprocess_time
 
 plt.style.use("ggplot")
 
@@ -42,7 +42,7 @@ DATASET_CONFIGS = {
     "moons": {
         "shape": (2,),
         "kind": "mlp",
-        "preprocess": preprocess_time_moons,
+        "preprocess": preprocess_time,
         "default_path": "weights/model_moons_neural_network_linear.safetensors",
         "default_batch": 256,
     },
@@ -50,7 +50,7 @@ DATASET_CONFIGS = {
         "shape": (1, 28, 28),
         "kind": "unet",
         "in_channels": 1,
-        "preprocess": preprocess_time_mnist,
+        "preprocess": preprocess_time,
         "default_path": "weights/model_mnist_unet_linear.safetensors",
         "default_batch": 32,
     },
@@ -58,7 +58,7 @@ DATASET_CONFIGS = {
         "shape": (1, 28, 28),
         "kind": "unet",
         "in_channels": 1,
-        "preprocess": preprocess_time_mnist,
+        "preprocess": preprocess_time,
         "default_path": "weights/model_fashion_mnist_unet_linear.safetensors",
         "default_batch": 32,
     },
@@ -66,7 +66,7 @@ DATASET_CONFIGS = {
         "shape": (3, 32, 32),
         "kind": "unet",
         "in_channels": 3,
-        "preprocess": preprocess_time_cifar,
+        "preprocess": preprocess_time,
         "default_path": "weights/model_cifar10_unet_linear.safetensors",
         "default_batch": 16,
     },

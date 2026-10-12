@@ -38,7 +38,7 @@ from tinygrad.tensor import Tensor as T
 from tinyflow.nn import UNetTinygrad
 from tinyflow.solver import RK4, Euler, Heun
 from tinyflow.trainer import BaseTrainer
-from tinyflow.utils import preprocess_time_mnist
+from tinyflow.utils import preprocess_time
 
 plt.style.use("ggplot")
 mlflow.set_tracking_uri("sqlite:///mlflow.db")
@@ -54,11 +54,11 @@ CONFIGS = [
 
 def make_solver(name: str, model):
     if name == "euler":
-        return Euler(model, preprocess_hook=preprocess_time_mnist)
+        return Euler(model, preprocess_hook=preprocess_time)
     if name == "heun":
-        return Heun(model, preprocess_hook=preprocess_time_mnist)
+        return Heun(model, preprocess_hook=preprocess_time)
     if name == "rk4":
-        return RK4(model, preprocess_hook=preprocess_time_mnist)
+        return RK4(model, preprocess_hook=preprocess_time)
     raise ValueError(name)
 
 

@@ -34,7 +34,7 @@ from tinygrad.tensor import Tensor as T
 
 from tinyflow.nn import UNetTinygrad
 from tinyflow.trainer import BaseTrainer
-from tinyflow.utils import preprocess_time_mnist
+from tinyflow.utils import preprocess_time
 
 plt.style.use("ggplot")
 mlflow.set_tracking_uri("sqlite:///mlflow.db")
@@ -166,7 +166,7 @@ def main():
         T.manual_seed(args.seed)
         x0_ref = T.randn(args.n_samples, 1, 28, 28).realize()
         with mlflow.start_run(run_name=f"reference_NFE{args.reference_nfe}", nested=True):
-            x_ref, info = integrate_fixed(model, preprocess_time_mnist, x0_ref, args.reference_nfe)
+            x_ref, info = integrate_fixed(model, preprocess_time, x0_ref, args.reference_nfe)
             x_ref_np = x_ref.numpy()
             mlflow.log_params({"config": "reference", **info})
             grid_path = "/tmp/adaptive_sampler_reference.png"
@@ -182,7 +182,7 @@ def main():
             with mlflow.start_run(run_name=f"adaptive_target{target}", nested=True):
                 x_adapt, info = integrate_adaptive(
                     model,
-                    preprocess_time_mnist,
+                    preprocess_time,
                     x0,
                     target,
                     args.beta,
@@ -224,7 +224,7 @@ def main():
             x0 = T.randn(args.n_samples, 1, 28, 28).realize()
 
             with mlflow.start_run(run_name=f"fixed_NFE{actual_nfe}", nested=True):
-                x_fixed, info = integrate_fixed(model, preprocess_time_mnist, x0, actual_nfe)
+                x_fixed, info = integrate_fixed(model, preprocess_time, x0, actual_nfe)
                 x_fixed_np = x_fixed.numpy()
                 mlflow.log_params({"config": "fixed", "matched_to_target": target, **info})
                 grid_path = f"/tmp/adaptive_sampler_fixed_NFE{actual_nfe}.png"

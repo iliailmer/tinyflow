@@ -25,7 +25,7 @@ from tinyflow.time_sampler import (
     ModeHeavyTailSampler,
     UniformTimeSampler,
 )
-from tinyflow.utils import preprocess_time_cifar, preprocess_time_mnist, preprocess_time_moons
+from tinyflow.utils import preprocess_time
 
 
 def create_model(cfg: DictConfig, model_path: str | None = None):
@@ -142,33 +142,21 @@ def create_lr_scheduler(cfg: DictConfig, optimizer):
     return base_scheduler
 
 
-def create_solver(cfg: DictConfig, model, preprocess_hook):
+def create_solver(cfg: DictConfig, model):
     """Create ODE solver from config."""
     solver_type = cfg.solver.type
     if solver_type == "euler":
-        return Euler(model, preprocess_hook=preprocess_hook)
+        return Euler(model, preprocess_hook=preprocess_time)
     if solver_type == "heun":
-        return Heun(model, preprocess_hook=preprocess_hook)
+        return Heun(model, preprocess_hook=preprocess_time)
     if solver_type == "midpoint":
-        return MidpointSolver(model, preprocess_hook=preprocess_hook)
+        return MidpointSolver(model, preprocess_hook=preprocess_time)
     if solver_type == "rk4":
-        return RK4(model, preprocess_hook=preprocess_hook)
+        return RK4(model, preprocess_hook=preprocess_time)
     if solver_type == "ddim":
         eta = cfg.solver.get("eta", 0.0)
-        return DDIM(model, preprocess_hook=preprocess_hook, eta=eta)
+        return DDIM(model, preprocess_hook=preprocess_time, eta=eta)
     raise ValueError(f"Unknown solver type: {solver_type}")
-
-
-def get_preprocess_hook(cfg: DictConfig):
-    """Get the time-preprocessing hook for the configured dataset."""
-    dataset_type = cfg.dataset.get("type", cfg.dataset.name)
-    if dataset_type == "moons":
-        return preprocess_time_moons
-    if dataset_type in ["mnist", "fashion_mnist"]:
-        return preprocess_time_mnist
-    if dataset_type == "cifar10":
-        return preprocess_time_cifar
-    raise ValueError(f"Unknown dataset type: {dataset_type}")
 
 
 def detect_time_embed_dim(model_path: str, in_channels: int) -> int:

@@ -35,7 +35,7 @@ from tqdm import tqdm
 
 from tinyflow.nn import UNetTinygrad
 from tinyflow.trainer import BaseTrainer
-from tinyflow.utils import preprocess_time_mnist
+from tinyflow.utils import preprocess_time
 
 plt.style.use("ggplot")
 
@@ -119,7 +119,7 @@ def main():
                     mlflow.set_tags({"schedule": label, "kind": "schedule_compare"})
                     mlflow.log_params({"schedule": label, "p": sched_p, "N": N, "NFE": N})
 
-                    x_final = euler_integrate(model, x0, ts, preprocess_time_mnist)
+                    x_final = euler_integrate(model, x0, ts, preprocess_time)
                     x_np = x_final.numpy()
                     results[(sched_p, N)] = x_np
 
