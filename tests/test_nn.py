@@ -2,6 +2,7 @@ import pytest
 from tinygrad.tensor import Tensor as T
 
 from tinyflow.nn import MLP, NeuralNetwork, UNet
+from tinyflow.nn_utils.time_embedding import SinusoidalTimeEmbedding
 
 
 class TestMLP:
@@ -42,6 +43,11 @@ class TestUNet:
         x = T.randn(2, in_channels, image_size, image_size)
         output = model(x, T.rand(2, 1))
         assert output.shape == x.shape
+
+
+def test_time_embedding_separates_close_times():
+    embedding = SinusoidalTimeEmbedding(64)(T([[0.50], [0.51]])).numpy()
+    assert abs(embedding[0] - embedding[1]).max() > 0.5
 
 
 if __name__ == "__main__":
