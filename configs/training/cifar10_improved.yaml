@@ -1,7 +1,8 @@
 # @package _global_
 
 training:
-  num_epochs: 3  # 3x longer than default (100 epochs)
+  # One pass checks that the pipeline runs. Usable CIFAR-10 samples need many more epochs.
+  num_epochs: 1
   step_size: 0.01  # 100 ODE steps for high-quality inference (vs 20 steps)
   n_samples: 9  # Generate 3x3 grid of samples
   log_interval: 10  # Log every 10 epochs

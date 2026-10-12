@@ -1,2 +1,2 @@
 type: ddim
-eta: 0.0
+eta: 0.0  # only 0 (deterministic) is supported

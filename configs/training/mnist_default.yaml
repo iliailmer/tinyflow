@@ -1,7 +1,8 @@
 # @package _global_
 
 training:
-  num_epochs: 3
+  # One pass over the data. Override with training.num_epochs=N.
+  num_epochs: 1
   step_size: 0.05  # ODE solver step size (20 steps = 5x faster than 0.01)
   n_samples: 1  # Number of samples to generate during evaluation
   log_interval: 1 # Log metrics every N epochs
