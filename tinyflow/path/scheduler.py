@@ -59,7 +59,14 @@ class PolynomialScheduler(BaseScheduler):
 
 
 class LinearVarPresScheduler(BaseScheduler):
-    def __init__(self, eps: float = 1e-8):
+    """
+    alpha_t = t, sigma_t = sqrt(1 - t^2).
+
+    The derivative of sigma_t is not bounded as t goes to 1. sigma_t_dot uses
+    min(t, 1 - eps) so that the training target stays bounded.
+    """
+
+    def __init__(self, eps: float = 1e-3):
         super().__init__()
         self.eps = eps
 
@@ -73,7 +80,8 @@ class LinearVarPresScheduler(BaseScheduler):
         return T.sqrt(1 - t**2)
 
     def sigma_t_dot(self, t):
-        return -t / T.sqrt(1 - t**2 + self.eps)
+        t = t.minimum(1 - self.eps)
+        return -t / T.sqrt(1 - t**2)
 
 
 class CosineScheduler(BaseScheduler):
