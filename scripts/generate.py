@@ -31,7 +31,7 @@ import sys
 import hydra
 import matplotlib.pyplot as plt
 import numpy as np
-from _common import create_model, create_solver, seed_everything
+from _common import create_model, create_solver, get_value_range, seed_everything
 from omegaconf import DictConfig, OmegaConf
 from PIL import Image
 from tinygrad.helpers import TRAINING
@@ -72,9 +72,10 @@ def get_dataset_config(cfg: DictConfig):
         raise ValueError(f"Unknown dataset type: {dataset_type}")
 
 
-def to_display(x_np: np.ndarray) -> np.ndarray:
-    """Clip images to the data range [0, 1]. No rescaling, so colours and contrast stay true."""
-    return np.clip(x_np, 0, 1)
+def to_display(x_np: np.ndarray, value_range: tuple[float, float]) -> np.ndarray:
+    """Map images from the training value range to [0, 1] and clip. No rescaling by content."""
+    low, high = value_range
+    return np.clip((x_np - low) / (high - low), 0, 1)
 
 
 def generate_image_grid(cfg: DictConfig, model, solver, dataset_config):
@@ -91,7 +92,7 @@ def generate_image_grid(cfg: DictConfig, model, solver, dataset_config):
     shape = (batch_size,) + dataset_config["shape"]
     x = solver.solve(T.randn(*shape), uniform_time_grid(num_steps))
 
-    x_np = to_display(x.numpy())
+    x_np = to_display(x.numpy(), get_value_range(cfg))
 
     # Plot grid
     fig, axes = plt.subplots(grid_size, grid_size, figsize=(10, 10))
@@ -150,7 +151,7 @@ def generate_image_animation(cfg: DictConfig, model, solver, dataset_config):
     def capture_frame(i, t, x_t):
         if i + 1 not in capture_steps:
             return
-        x_normalized = to_display(x_t.numpy())
+        x_normalized = to_display(x_t.numpy(), get_value_range(cfg))
 
         fig, axes = plt.subplots(grid_size, grid_size, figsize=(8, 8))
         fig.suptitle(f"t = {t:.2f}", fontsize=16, y=0.98)

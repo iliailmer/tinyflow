@@ -8,3 +8,4 @@ dataset:
   batch_size: 32
   shuffle: true
   train: true
+  value_range: [0.0, 1.0]  # range of the image values; [-1.0, 1.0] centres them on the noise mean
