@@ -275,7 +275,7 @@ def main(cfg: DictConfig):
     mlflow.set_experiment(cfg.mlflow.experiment_name)
     with mlflow.start_run(run_name=dataset_type):
         mlflow.log_params(flatten_config(cfg))
-        mlflow.log_param("model_name", model_name)
+        mlflow.log_param("model_path", model_name)
         mlflow.set_tags(
             {
                 "dataset": dataset_type,
