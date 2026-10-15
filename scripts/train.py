@@ -36,6 +36,7 @@ from _common import (
     create_scheduler,
     create_solver,
     create_time_sampler,
+    get_value_range,
     seed_everything,
 )
 from loguru import logger
@@ -79,14 +80,22 @@ def create_dataloader(cfg: DictConfig):
     batch_size = cfg.dataset.get("batch_size", 32)
     flatten = cfg.dataset.get("flatten", False)
     shuffle = cfg.dataset.get("shuffle", True)
+    value_range = get_value_range(cfg)
 
     if dataset_type == "mnist":
-        return MNISTLoader(flatten=flatten, batch_size=batch_size, shuffle=shuffle)
+        return MNISTLoader(
+            flatten=flatten, batch_size=batch_size, shuffle=shuffle, value_range=value_range
+        )
     elif dataset_type == "fashion_mnist":
         path = cfg.dataset.get("path", "dataset/fashion_mnist")
         train = cfg.dataset.get("train", True)
         return FashionMNISTLoader(
-            path=path, flatten=flatten, batch_size=batch_size, shuffle=shuffle, train=train
+            path=path,
+            flatten=flatten,
+            batch_size=batch_size,
+            shuffle=shuffle,
+            train=train,
+            value_range=value_range,
         )
     elif dataset_type == "cifar10":
         path = cfg.dataset.get("path", "dataset/cifar10/cifar-10-batches-py")
@@ -98,6 +107,7 @@ def create_dataloader(cfg: DictConfig):
             shuffle=shuffle,
             train=train,
             normalize=normalize,
+            value_range=value_range,
         )
     else:
         raise ValueError(f"Unknown dataset type: {dataset_type}")
@@ -139,7 +149,9 @@ def generate_model_name(cfg: DictConfig) -> str:
     model_type = cfg.model.name
     scheduler = cfg.scheduler.type.replace("Scheduler", "").lower()
     time_sampler = cfg.time_sampler.type.lower()
-    return f"model_{dataset}_{model_type}_ts_{time_sampler}_{scheduler}.safetensors"
+    low, high = get_value_range(cfg)
+    value_range = "" if (low, high) == (0.0, 1.0) else f"_vr{low:g}_{high:g}"
+    return f"model_{dataset}_{model_type}_ts_{time_sampler}_{scheduler}{value_range}.safetensors"
 
 
 def train_moons(cfg: DictConfig, model_name: str):

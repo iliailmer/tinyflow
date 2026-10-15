@@ -35,6 +35,9 @@ class BaseDataloader:
     With shuffle=True the order changes on every pass. With drop_last=True the
     last batch is dropped when it is smaller than batch_size, so every batch
     has the same shape and len() is the number of batches a pass returns.
+
+    images must be in [0, 1]. value_range=(low, high) maps them linearly to
+    [low, high]; (-1, 1) centres the data on the mean of the noise.
     """
 
     def __init__(
@@ -44,9 +47,13 @@ class BaseDataloader:
         batch_size: int,
         shuffle: bool = True,
         drop_last: bool = True,
+        value_range: tuple[float, float] = (0.0, 1.0),
     ) -> None:
         if len(images) != len(labels):
             raise ValueError(f"Got {len(images)} images and {len(labels)} labels")
+        low, high = value_range
+        if (low, high) != (0.0, 1.0):
+            images = low + (high - low) * images
         self.images = images
         self.labels = labels
         self.batch_size = batch_size
@@ -83,6 +90,7 @@ class MNISTLoader(BaseDataloader):
         shuffle: bool = True,
         flatten: bool = True,
         drop_last: bool = True,
+        value_range: tuple[float, float] = (0.0, 1.0),
     ) -> None:
         self.path = path
         self.flatten = flatten
@@ -96,7 +104,7 @@ class MNISTLoader(BaseDataloader):
         images = images / 255.0
         images = images.reshape(len(files), -1) if flatten else images[:, None, :, :]
         labels = np.array([int(os.path.basename(os.path.dirname(f))) for f in files])
-        super().__init__(images, labels, batch_size, shuffle, drop_last)
+        super().__init__(images, labels, batch_size, shuffle, drop_last, value_range)
 
 
 class FashionMNISTLoader(BaseDataloader):
@@ -114,6 +122,7 @@ class FashionMNISTLoader(BaseDataloader):
         flatten: bool = False,
         train: bool = True,
         drop_last: bool = True,
+        value_range: tuple[float, float] = (0.0, 1.0),
     ) -> None:
         self.path = path
         self.flatten = flatten
@@ -125,7 +134,7 @@ class FashionMNISTLoader(BaseDataloader):
 
         images = images.astype(np.float32) / 255.0
         images = images.reshape(-1, 28 * 28) if flatten else images.reshape(-1, 1, 28, 28)
-        super().__init__(images, labels, batch_size, shuffle, drop_last)
+        super().__init__(images, labels, batch_size, shuffle, drop_last, value_range)
 
 
 class CIFAR10Loader(BaseDataloader):
@@ -148,6 +157,7 @@ class CIFAR10Loader(BaseDataloader):
         train: bool = True,
         normalize: bool = True,
         drop_last: bool = True,
+        value_range: tuple[float, float] = (0.0, 1.0),
     ):
         from tinyflow.utils import unpickle
 
@@ -166,4 +176,6 @@ class CIFAR10Loader(BaseDataloader):
         images = np.concatenate(all_images, axis=0)
         if normalize:
             images = images / 255.0
-        super().__init__(images, np.array(all_labels), batch_size, shuffle, drop_last)
+        elif tuple(value_range) != (0.0, 1.0):
+            raise ValueError("value_range needs normalize=True")
+        super().__init__(images, np.array(all_labels), batch_size, shuffle, drop_last, value_range)

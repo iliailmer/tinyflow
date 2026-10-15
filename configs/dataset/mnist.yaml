@@ -4,3 +4,4 @@ dataset:
   name: "mnist"
   flatten: false
   batch_size: 32
+  value_range: [0.0, 1.0]  # range of the image values; [-1.0, 1.0] centres them on the noise mean

@@ -76,6 +76,12 @@ def seed_everything(cfg: DictConfig):
         np.random.seed(seed)
 
 
+def get_value_range(cfg: DictConfig) -> tuple[float, float]:
+    """Range of the image values in training, from dataset.value_range. Default (0, 1)."""
+    low, high = cfg.dataset.get("value_range", [0.0, 1.0])
+    return float(low), float(high)
+
+
 def create_scheduler(cfg: DictConfig):
     """Create flow-matching path scheduler from config."""
     scheduler_type = cfg.scheduler.type

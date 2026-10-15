@@ -54,6 +54,12 @@ class TestBaseDataloader:
             orders.append(np.concatenate([labels for _, labels in make_loader(n=32)]).tolist())
         assert orders[0] == orders[1]
 
+    def test_value_range_maps_zero_one_linearly(self):
+        images = np.array([[0.0], [0.5], [1.0]], dtype=np.float32)
+        loader = BaseDataloader(images, np.arange(3), 3, shuffle=False, value_range=(-1.0, 1.0))
+        batch, _ = next(iter(loader))
+        assert batch[:, 0].tolist() == [-1.0, 0.0, 1.0]
+
     def test_length_mismatch_is_rejected(self):
         with pytest.raises(ValueError):
             BaseDataloader(np.zeros((3, 1)), np.zeros(2), batch_size=1)
