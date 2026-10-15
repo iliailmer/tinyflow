@@ -130,6 +130,7 @@ def create_trainer(
         lr_scheduler=lr_scheduler,
         time_sampler=time_sampler,
         gradient_accumulation_steps=gradient_accumulation_steps,
+        ema_decay=cfg.training.get("ema_decay"),
     )
 
 
@@ -234,15 +235,21 @@ def train_images(cfg: DictConfig, model_name: str):
     trainer = create_trainer(cfg, model, time_sampler, dataloader, optim, path, lr_scheduler)
 
     model = trainer.train()
-    if cfg.training.get("save_model", True):
-        trainer.save_model(model_name)
+    save_model = cfg.training.get("save_model", True)
+    if save_model and trainer.ema_decay:
+        trainer.save_model(model_name.replace(".safetensors", "_raw.safetensors"))
 
     if cfg.training.get("log_artifacts", True):
         trainer.plot_loss(cfg.get("output_dir", "outputs"))
 
-    if cfg.training.get("generate_samples", True):
-        solver = create_solver(cfg, model)
-        trainer.predict(cfg, solver)
+    # With EMA on, the saved model and the samples use the averaged weights
+    with trainer.ema_weights():
+        if save_model:
+            trainer.save_model(model_name)
+
+        if cfg.training.get("generate_samples", True):
+            solver = create_solver(cfg, model)
+            trainer.predict(cfg, solver)
 
 
 @hydra.main(version_base=None, config_path="../configs", config_name="config")

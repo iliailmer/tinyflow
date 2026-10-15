@@ -1,12 +1,12 @@
 # @package _global_
 
 training:
-  # One pass over the data. Override with training.num_epochs=N.
   num_epochs: 1
-  step_size: 0.05  # ODE solver step size (20 steps = 5x faster than 0.01)
-  n_samples: 1  # Number of samples to generate during evaluation
-  log_interval: 1 # Log metrics every N epochs
+  step_size: 0.05
+  n_samples: 1
+  log_interval: 1
   save_model: true
   generate_samples: true
-  num_plots: 10  # Number of intermediate plots for visualization
-  gradient_accumulation_steps: 1  # Number of steps to accumulate gradients (simulates larger batch)
+  num_plots: 10
+  gradient_accumulation_steps: 1
+  ema_decay: null
