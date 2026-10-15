@@ -17,7 +17,7 @@ Flow matching is an approach to generative modeling that learns to transform a n
 - **Schedulers:** Linear, Cosine, Polynomial, Linear Variance Preserving (LVP)
 - **ODE solvers:** Euler, Heun, Midpoint, RK4, DDIM (deterministic, same result as Euler)
 - **Time samplers for training:** uniform, logit-normal, mode/heavy-tail, cos
-- **Models:** `MLPNetwork`, `UNetMNIST`, `UNetCIFAR10`, `UNetCIFAR10Large` (with self-attention)
+- **Models:** `MLPNetwork`, and one configurable `UNet` (`model=unet`, or `model=unet_large` with self-attention)
 - **Datasets:** MNIST, Fashion MNIST, CIFAR-10, 2D moons
 - **LR schedulers:** step, cosine, warmup
 - **Experiment tracking:** Hydra configuration and MLflow logging
@@ -106,7 +106,7 @@ uv run scripts/train.py +experiment=quick_test
 | Group | Options | Default |
 |---|---|---|
 | `dataset` | `mnist`, `fashion_mnist`, `cifar10`, `moons` | `mnist` |
-| `model` | `unet`, `unet_large` (CIFAR-10 only), `neural_network` | `unet` |
+| `model` | `unet`, `unet_large`, `neural_network` | `unet` |
 | `scheduler` | `linear`, `cosine`, `polynomial`, `lvp` | `linear` |
 | `solver` | `euler`, `heun`, `midpoint`, `rk4`, `ddim` | `heun` |
 | `time_sampler` | `uniform`, `logit_normal`, `mode_heavy_tail`, `cos` | `uniform` |
@@ -118,9 +118,11 @@ uv run scripts/train.py +experiment=quick_test
 
 ```python
 from tinygrad.tensor import Tensor
+from tinyflow.nn import UNet
 from tinyflow.solver import Heun, uniform_time_grid
 from tinyflow.utils import preprocess_time
 
+model = UNet(in_channels=1, image_size=28)
 solver = Heun(model, preprocess_hook=preprocess_time)
 x = solver.solve(Tensor.randn(16, 1, 28, 28), uniform_time_grid(20))
 ```

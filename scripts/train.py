@@ -136,7 +136,7 @@ def create_trainer(
 def generate_model_name(cfg: DictConfig) -> str:
     """Generate model name from config."""
     dataset = cfg.dataset.get("type", cfg.dataset.name)
-    model_type = cfg.model.type
+    model_type = cfg.model.name
     scheduler = cfg.scheduler.type.replace("Scheduler", "").lower()
     time_sampler = cfg.time_sampler.type.lower()
     return f"model_{dataset}_{model_type}_ts_{time_sampler}_{scheduler}.safetensors"

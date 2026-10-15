@@ -1,7 +1,7 @@
 import pytest
 from tinygrad.tensor import Tensor as T
 
-from tinyflow.nn import MLP, NeuralNetwork, UNetCIFAR10, UNetMNIST
+from tinyflow.nn import MLP, NeuralNetwork, UNet
 
 
 class TestMLP:
@@ -24,24 +24,24 @@ class TestNeuralNetwork:
         assert output.shape == (8, 10)
 
 
-class TestUNetMNIST:
-    def test_output_shape_mnist(self):
-        """Test UNetMNIST for 28x28 grayscale images"""
-        model = UNetMNIST(in_channels=1, out_channels=1)
-        x = T.randn(2, 1, 28, 28)
-        t = T.rand(2, 1)
-        output = model(x, t)
-        assert output.shape == (2, 1, 28, 28)
-
-
-class TestUNetCIFAR10:
-    def test_output_shape_cifar(self):
-        """Test UNetCIFAR10 for 32x32 RGB images"""
-        model = UNetCIFAR10(in_channels=3, out_channels=3)
-        x = T.randn(2, 3, 32, 32)
-        t = T.rand(2, 1)
-        output = model(x, t)
-        assert output.shape == (2, 3, 32, 32)
+class TestUNet:
+    @pytest.mark.parametrize(
+        ("in_channels", "image_size", "kwargs"),
+        [
+            (1, 28, {}),
+            (3, 32, {}),
+            (
+                3,
+                32,
+                {"channels": (16, 32, 64), "blocks_per_level": 2, "attention_resolutions": (16,)},
+            ),
+        ],
+    )
+    def test_output_shape(self, in_channels, image_size, kwargs):
+        model = UNet(in_channels=in_channels, image_size=image_size, **kwargs)
+        x = T.randn(2, in_channels, image_size, image_size)
+        output = model(x, T.rand(2, 1))
+        assert output.shape == x.shape
 
 
 if __name__ == "__main__":

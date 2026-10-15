@@ -20,7 +20,6 @@ import matplotlib.pyplot as plt
 import mlflow
 import numpy as np
 from _common import (
-    detect_time_embed_dim,
     normalize_per_sample,
     per_sample_norm_mean,
     schedule_grid,
@@ -29,7 +28,7 @@ from tinygrad.helpers import TRAINING
 from tinygrad.tensor import Tensor as T
 from tqdm import tqdm
 
-from tinyflow.nn import NeuralNetwork, UNetCIFAR10, UNetMNIST
+from tinyflow.nn import NeuralNetwork, UNet
 from tinyflow.trainer import BaseTrainer
 from tinyflow.utils import preprocess_time
 
@@ -43,7 +42,7 @@ DATASET_CONFIGS = {
         "shape": (2,),
         "kind": "mlp",
         "preprocess": preprocess_time,
-        "default_path": "weights/model_moons_neural_network_linear.safetensors",
+        "default_path": "weights/model_moons_neural_network_ts_uniform_linear.safetensors",
         "default_batch": 256,
     },
     "mnist": {
@@ -51,7 +50,7 @@ DATASET_CONFIGS = {
         "kind": "unet",
         "in_channels": 1,
         "preprocess": preprocess_time,
-        "default_path": "weights/model_mnist_unet_linear.safetensors",
+        "default_path": "weights/model_mnist_unet_ts_uniform_linear.safetensors",
         "default_batch": 32,
     },
     "fashion_mnist": {
@@ -59,7 +58,7 @@ DATASET_CONFIGS = {
         "kind": "unet",
         "in_channels": 1,
         "preprocess": preprocess_time,
-        "default_path": "weights/model_fashion_mnist_unet_linear.safetensors",
+        "default_path": "weights/model_fashion_mnist_unet_ts_uniform_linear.safetensors",
         "default_batch": 32,
     },
     "cifar10": {
@@ -67,7 +66,7 @@ DATASET_CONFIGS = {
         "kind": "unet",
         "in_channels": 3,
         "preprocess": preprocess_time,
-        "default_path": "weights/model_cifar10_unet_linear.safetensors",
+        "default_path": "weights/model_cifar10_unet_ts_uniform_linear.safetensors",
         "default_batch": 16,
     },
 }
@@ -77,9 +76,7 @@ def build_model(dataset: str, model_path: str):
     cfg = DATASET_CONFIGS[dataset]
     if cfg["kind"] == "mlp":
         return NeuralNetwork(in_dim=2, time_embed_dim=64, out_dim=2)
-    in_ch = cfg["in_channels"]
-    model_cls = UNetCIFAR10 if dataset == "cifar10" else UNetMNIST
-    return model_cls(in_ch, in_ch, time_embed_dim=detect_time_embed_dim(model_path, in_ch))
+    return UNet(in_channels=cfg["in_channels"], image_size=cfg["shape"][-1])
 
 
 def profile(

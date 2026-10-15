@@ -1,5 +1,9 @@
 # @package _global_
 
 model:
-  name: "UNetCIFAR10Large"
-  type: "unet_large"
+  name: "unet_large"
+  type: "unet"
+  channels: [48, 96, 192, 384, 768]  # encoder levels, then the bottleneck
+  blocks_per_level: 2
+  attention_resolutions: [4, 8]  # feature map sizes with self-attention
+  time_embed_dim: 96
