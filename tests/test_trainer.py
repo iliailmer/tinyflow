@@ -77,3 +77,23 @@ def test_lr_scheduler_changes_reach_the_compiled_step():
         trainer.epoch(2)
 
     assert np.allclose(after_first_epoch, trainer.model.linear.weight.numpy())
+
+
+def test_ema_weights_are_swapped_in_and_restored():
+    trainer = make_trainer(ema_decay=0.9)
+    weight = trainer.model.linear.weight
+    initial = weight.numpy().copy()
+
+    with Context(TRAINING=1):
+        for i in range(3):
+            trainer.epoch(i)
+    raw = weight.numpy().copy()
+
+    with trainer.ema_weights():
+        ema = weight.numpy().copy()
+
+    assert not np.allclose(ema, raw)
+    assert not np.allclose(ema, initial)
+    # The average is behind the raw weights, between the start and the current value
+    assert np.abs(ema - raw).max() < np.abs(initial - raw).max()
+    assert np.allclose(weight.numpy(), raw)

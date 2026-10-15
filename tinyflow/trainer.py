@@ -1,5 +1,6 @@
 import os
 from collections.abc import Callable
+from contextlib import contextmanager
 
 import mlflow
 from loguru import logger
@@ -38,6 +39,7 @@ class BaseTrainer:
         lr_scheduler=None,
         time_sampler: BaseTimeSampler | None = None,
         gradient_accumulation_steps: int = 1,
+        ema_decay: float | None = None,
     ):
         self.model = model
         self.dataloader = dataloader
@@ -57,6 +59,15 @@ class BaseTrainer:
         self.accumulation_step = 0
         self._jit_train_step = TinyJit(self._train_step)
         self._jit_shape = None
+
+        # Lazy random init gives different values when it is realized later, after other
+        # random draws. Realize it here so that the initial weights do not depend on options.
+        T.realize(*optim.params)
+
+        self.ema_decay = ema_decay or 0.0
+        self._ema_steps = 0
+        self._ema = [T(p.numpy()) for p in optim.params] if ema_decay else []
+        self._jit_ema_step = TinyJit(self._ema_step)
 
     def next_batch(self):
         try:
@@ -134,6 +145,33 @@ class BaseTrainer:
             loss.realize(*[p.grad for p in self.optim.params if p.grad is not None])
         return loss * self.gradient_accumulation_steps
 
+    def _ema_step(self, decay: T) -> T:
+        updates = [
+            e.assign(decay * e + (1 - decay) * p)
+            for e, p in zip(self._ema, self.optim.params, strict=True)
+        ]
+        T.realize(*updates)
+        return updates[0]
+
+    def _update_ema(self):
+        # A low decay in the first steps keeps the random initial weights out of the average
+        decay = min(self.ema_decay, (1 + self._ema_steps) / (10 + self._ema_steps))
+        self._jit_ema_step(T([decay]).contiguous().realize())
+        self._ema_steps += 1
+
+    @contextmanager
+    def ema_weights(self):
+        """Put the EMA weights into the model inside the block. Does nothing when EMA is off."""
+        if not self._ema:
+            yield
+            return
+        raw = [p.numpy() for p in self.optim.params]
+        T.realize(*[p.assign(e) for p, e in zip(self.optim.params, self._ema, strict=True)])
+        try:
+            yield
+        finally:
+            T.realize(*[p.assign(T(r)) for p, r in zip(self.optim.params, raw, strict=True)])
+
     @logger.catch(reraise=True)
     def epoch(self, epoch_idx: int | None):
         mean_loss_per_epoch = 0.0
@@ -158,6 +196,9 @@ class BaseTrainer:
             loss_value = loss.item()
             mean_loss_per_epoch += loss_value
             self._losses.append(loss_value)
+
+            if self.accumulation_step == 0 and self._ema:
+                self._update_ema()
 
             if self.accumulation_step == 0 and self.lr_scheduler is not None:
                 self.lr_scheduler.step(self.global_step)
