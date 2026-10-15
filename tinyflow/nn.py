@@ -93,7 +93,8 @@ class UNet(BaseNeuralNetwork):
         attention_resolutions: Feature map sizes that get self-attention, in the
             bottleneck and the decoder
         num_heads: Attention heads
-        time_embed_dim: Dimension of the sinusoidal time embedding
+        time_embed_dim: Dimension of the sinusoidal time embedding. An MLP maps it to a
+            time vector of 4 times this size, which is added in every conv block.
     """
 
     def __init__(
@@ -110,16 +111,20 @@ class UNet(BaseNeuralNetwork):
         super().__init__()
         *level_channels, bottleneck_channels = channels
         sizes = [image_size // 2**i for i in range(len(level_channels))]
+        time_dim = 4 * time_embed_dim
         self.time_embed = SinusoidalTimeEmbedding(time_embed_dim)
+        self.time_mlp = [nn.Linear(time_embed_dim, time_dim), nn.Linear(time_dim, time_dim)]
 
         def blocks(c_in: int, c_out: int, count: int) -> list:
-            return [ConvBlock(c_in if i == 0 else c_out, c_out) for i in range(count)]
+            return [
+                ConvBlock(c_in if i == 0 else c_out, c_out, time_dim=time_dim) for i in range(count)
+            ]
 
         def attention(c: int, size: int) -> list:
             return [SelfAttention(c, num_heads=num_heads)] if size in attention_resolutions else []
 
         self.encoder = []
-        c_prev = in_channels + time_embed_dim
+        c_prev = in_channels
         for c in level_channels:
             self.encoder.append(blocks(c_prev, c, blocks_per_level))
             c_prev = c
@@ -133,13 +138,19 @@ class UNet(BaseNeuralNetwork):
             c = level_channels[level]
             if level == 0:
                 level_blocks = [
-                    ConvTransposeBlock(c_prev + c, c, stride=1, padding=1, output_padding=0)
+                    ConvTransposeBlock(
+                        c_prev + c, c, stride=1, padding=1, output_padding=0, time_dim=time_dim
+                    )
                 ]
                 level_blocks += blocks(c, c, blocks_per_level - 1)
             else:
                 out_size = sizes[level - 1]
                 output_padding = out_size - (2 * sizes[level] - 1)
-                level_blocks = [ConvTransposeBlock(c_prev + c, c, output_padding=output_padding)]
+                level_blocks = [
+                    ConvTransposeBlock(
+                        c_prev + c, c, output_padding=output_padding, time_dim=time_dim
+                    )
+                ]
                 level_blocks += blocks(c, c, blocks_per_level - 1) + attention(c, out_size)
             self.decoder.append(level_blocks)
             c_prev = c
@@ -155,24 +166,25 @@ class UNet(BaseNeuralNetwork):
         Returns:
             Predicted velocity, same shape as x with out_channels channels
         """
-        t_embed = self.time_embed(t)
-        h = x.cat(t_embed.unsqueeze(-1).unsqueeze(-1).expand(-1, -1, x.shape[2], x.shape[3]), dim=1)
+        t_emb = self.time_mlp[1](self.time_mlp[0](self.time_embed(t)).swish())
 
+        def apply(level_blocks: list, h: Tensor) -> Tensor:
+            for block in level_blocks:
+                h = block(h) if isinstance(block, SelfAttention) else block(h, t_emb)
+            return h
+
+        h = x
         skips = []
         for level, level_blocks in enumerate(self.encoder):
             if level > 0:
                 h = cast(Tensor, h.max_pool2d((2, 2)))
-            for block in level_blocks:
-                h = block(h)
+            h = apply(level_blocks, h)
             skips.append(h)
 
-        for block in self.bottleneck:
-            h = block(h)
+        h = apply(self.bottleneck, h)
 
         for level_blocks, skip in zip(self.decoder, reversed(skips), strict=True):
-            h = h.cat(skip, dim=1)
-            for block in level_blocks:
-                h = block(h)
+            h = apply(level_blocks, h.cat(skip, dim=1))
 
         return self.final_layer(h)
 

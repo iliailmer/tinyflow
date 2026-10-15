@@ -2,11 +2,26 @@ from tinygrad import nn
 
 
 class ConvBlock:
-    """Residual ConvBlock: Conv -> GroupNorm -> Swish with residual connection."""
+    """
+    Residual ConvBlock: Conv -> GroupNorm -> Swish with residual connection.
 
-    def __init__(self, in_channels, out_channels, kernel_size=3, stride=1, padding=1, num_groups=8):
+    With time_dim set, a linear projection of the time vector is added to the
+    conv output, one value per channel.
+    """
+
+    def __init__(
+        self,
+        in_channels,
+        out_channels,
+        kernel_size=3,
+        stride=1,
+        padding=1,
+        num_groups=8,
+        time_dim: int | None = None,
+    ):
         self.in_channels = in_channels
         self.out_channels = out_channels
+        self.time_proj = nn.Linear(time_dim, out_channels) if time_dim else None
 
         self.conv = nn.Conv2d(in_channels, out_channels, kernel_size, stride, padding)
         self.norm = nn.GroupNorm(num_groups, out_channels)
@@ -16,11 +31,14 @@ class ConvBlock:
         if self.use_projection:
             self.projection = nn.Conv2d(in_channels, out_channels, kernel_size=1)
 
-    def __call__(self, x):
+    def __call__(self, x, t_emb=None):
         residual = x
 
-        # Main path: Conv -> GroupNorm -> Swish
-        out = self.norm(self.conv(x)).swish()
+        out = self.conv(x)
+        if self.time_proj is not None:
+            assert t_emb is not None, "this block was built with time_dim and needs t_emb"
+            out = out + self.time_proj(t_emb).reshape(x.shape[0], -1, 1, 1)
+        out = self.norm(out).swish()
 
         # Residual connection
         if self.use_projection:
@@ -30,7 +48,7 @@ class ConvBlock:
 
 
 class ConvTransposeBlock:
-    """Residual ConvTransposeBlock: ConvTranspose -> GroupNorm -> Swish with residual connection."""
+    """Residual ConvTransposeBlock: ConvTranspose -> GroupNorm -> Swish, with time_dim as in ConvBlock."""
 
     def __init__(
         self,
@@ -41,9 +59,11 @@ class ConvTransposeBlock:
         padding=1,
         output_padding=1,
         num_groups=8,
+        time_dim: int | None = None,
     ):
         self.in_channels = in_channels
         self.out_channels = out_channels
+        self.time_proj = nn.Linear(time_dim, out_channels) if time_dim else None
 
         self.conv = nn.ConvTranspose2d(
             in_channels,
@@ -66,11 +86,14 @@ class ConvTransposeBlock:
                 output_padding=output_padding,
             )
 
-    def __call__(self, x):
+    def __call__(self, x, t_emb=None):
         residual = x
 
-        # Main path: ConvTranspose -> GroupNorm -> Swish
-        out = self.norm(self.conv(x)).swish()
+        out = self.conv(x)
+        if self.time_proj is not None:
+            assert t_emb is not None, "this block was built with time_dim and needs t_emb"
+            out = out + self.time_proj(t_emb).reshape(x.shape[0], -1, 1, 1)
+        out = self.norm(out).swish()
 
         # Residual connection (upsample residual if needed)
         if self.use_projection:
