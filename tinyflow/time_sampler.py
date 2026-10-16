@@ -1,6 +1,5 @@
 import math
 
-from loguru import logger
 from tinygrad.tensor import Tensor
 
 
@@ -18,7 +17,6 @@ class UniformTimeSampler(BaseTimeSampler):
         self.l = low
         self.h = high
 
-    @logger.catch(reraise=True)
     def sample(self, *shape) -> Tensor:
         out = Tensor.rand(*shape)
         return (self.h - self.l) * out + self.l
@@ -29,7 +27,6 @@ class LogitNormalSampler(BaseTimeSampler):
         self.m = mean
         self.s = stddev
 
-    @logger.catch(reraise=True)
     def sample(self, *shape) -> Tensor:
         out: Tensor = self.m + self.s * Tensor.randn(*shape)
         out: Tensor = out.sigmoid()

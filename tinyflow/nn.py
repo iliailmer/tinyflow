@@ -50,7 +50,6 @@ class MLPNetwork(BaseNeuralNetwork):
         logger.warning("Unknown activation function, defaulting to Swish")
         return x.swish()
 
-    @logger.catch
     def __call__(self, x: Tensor, t: Tensor) -> Tensor:
         """
         Forward pass.

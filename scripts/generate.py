@@ -32,6 +32,7 @@ import hydra
 import matplotlib.pyplot as plt
 import numpy as np
 from _common import create_model, create_solver, get_value_range, seed_everything
+from loguru import logger
 from omegaconf import DictConfig, OmegaConf
 from PIL import Image
 from tinygrad.helpers import TRAINING
@@ -363,6 +364,7 @@ def main_impl(cfg: DictConfig):
 
 
 @hydra.main(version_base=None, config_path="../configs", config_name="generate_config")
+@logger.catch(reraise=True)
 def main(cfg: DictConfig):
     """Hydra entry point. Use --config-name=generate_moons_config for the moons dataset."""
     main_impl(cfg)

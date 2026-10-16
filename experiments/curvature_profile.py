@@ -24,6 +24,7 @@ from _common import (
     per_sample_norm_mean,
     schedule_grid,
 )
+from loguru import logger
 from tinygrad.helpers import TRAINING
 from tinygrad.tensor import Tensor as T
 from tqdm import tqdm
@@ -210,6 +211,7 @@ def make_story_plot(records, dataset: str, N: int, p: float):
     return fig
 
 
+@logger.catch(reraise=True)
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--dataset", choices=list(DATASET_CONFIGS), required=True)

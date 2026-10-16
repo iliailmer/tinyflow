@@ -28,6 +28,7 @@ from _common import (
     save_grid_figure,
     schedule_grid,
 )
+from loguru import logger
 from tinygrad.helpers import TRAINING
 from tinygrad.tensor import Tensor as T
 from tqdm import tqdm
@@ -67,6 +68,7 @@ def make_combined_figure(results, p: float, path: str):
     plt.close(fig)
 
 
+@logger.catch(reraise=True)
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument(

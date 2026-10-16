@@ -28,6 +28,7 @@ from _common import (
     save_grid_figure,
     schedule_grid,
 )
+from loguru import logger
 from tinygrad.helpers import TRAINING
 from tinygrad.tensor import Tensor as T
 
@@ -115,6 +116,7 @@ def make_dt_plot(log: dict, budget: int) -> plt.Figure:
     return fig
 
 
+@logger.catch(reraise=True)
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument(
