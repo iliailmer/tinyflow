@@ -265,6 +265,7 @@ def train_images(cfg: DictConfig, model_name: str):
 
 
 @hydra.main(version_base=None, config_path="../configs", config_name="config")
+@logger.catch(reraise=True)
 def main(cfg: DictConfig):
     """Hydra entry point; dispatches on dataset type."""
     logger.info("Configuration:")

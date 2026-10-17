@@ -1,10 +1,7 @@
-from loguru import logger
-
 from tinyflow.solver.solver import ODESolver
 
 
 class RK4(ODESolver):
-    @logger.catch(reraise=True)
     def step(self, h, t, rhs_prev):
         t1 = self.preprocess_hook(t, rhs_prev)
         k1 = self.rhs(rhs_prev, t1)

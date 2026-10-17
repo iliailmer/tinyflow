@@ -2,7 +2,6 @@ import os
 import pickle
 
 import numpy as np
-from loguru import logger
 from matplotlib import pyplot as plt
 
 from tinyflow.nn import Tensor
@@ -43,7 +42,6 @@ def _save_snapshot_row(snapshots, draw, save_path: str) -> str:
     return save_path
 
 
-@logger.catch
 def visualize_moons(x, solver, time_grid, num_plots=10, save_path="outputs/moons_generation.png"):
     def draw(ax, x_np):
         ax.scatter(x_np[:, 0], x_np[:, 1], s=20, alpha=0.6)
@@ -55,7 +53,6 @@ def visualize_moons(x, solver, time_grid, num_plots=10, save_path="outputs/moons
     return _save_snapshot_row(snapshots, draw, save_path)
 
 
-@logger.catch
 def visualize_mnist(x, solver, time_grid, num_plots=10, save_path="outputs/mnist_generation.png"):
     def draw(ax, x_np):
         img = x_np[0].reshape((28, 28))
@@ -66,7 +63,6 @@ def visualize_mnist(x, solver, time_grid, num_plots=10, save_path="outputs/mnist
     return _save_snapshot_row(snapshots, draw, save_path)
 
 
-@logger.catch
 def visualize_cifar10(
     x, solver, time_grid, num_plots=10, save_path="outputs/cifar10_generation.png"
 ):

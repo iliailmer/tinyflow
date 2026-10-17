@@ -86,7 +86,6 @@ class BaseTrainer:
     ):
         return load_state_dict(model, safe_load(model_path), strict=strict)
 
-    @logger.catch(reraise=True)
     def train(self) -> BaseNeuralNetwork:
         pbar = tqdm(range(self.num_epochs))
         with Context(TRAINING=1):
@@ -172,7 +171,6 @@ class BaseTrainer:
         finally:
             T.realize(*[p.assign(T(r)) for p, r in zip(self.optim.params, raw, strict=True)])
 
-    @logger.catch(reraise=True)
     def epoch(self, epoch_idx: int | None):
         mean_loss_per_epoch = 0.0
         desc = f"Epoch {epoch_idx}" if epoch_idx is not None else ""
