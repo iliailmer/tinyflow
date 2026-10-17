@@ -28,6 +28,9 @@ build-backend = "setuptools.build_meta"
 
 [dependency-groups]
 dev = ["pytest>=8.4.2", "ruff>=0.8.0", "pyright>=1.1.0", "pre-commit>=4.0.0"]
+eval = [
+    "clean-fid>=0.1.35",
+]
 
 
 [tool.setuptools.packages.find]
