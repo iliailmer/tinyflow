@@ -3,7 +3,8 @@ import pytest
 from tinygrad import nn
 from tinygrad.helpers import Context
 from tinygrad.nn.optim import Adam
-from tinygrad.nn.state import get_parameters
+from tinygrad.nn.state import get_parameters, safe_load
+from tinygrad.tensor import Tensor as T
 
 from tinyflow.losses import mse
 from tinyflow.nn import BaseNeuralNetwork
@@ -97,3 +98,34 @@ def test_ema_weights_are_swapped_in_and_restored():
     # The average is behind the raw weights, between the start and the current value
     assert np.abs(ema - raw).max() < np.abs(initial - raw).max()
     assert np.allclose(weight.numpy(), raw)
+
+
+def test_checkpoint_during_training_saves_both_weights_and_changes_nothing(tmp_path, monkeypatch):
+    monkeypatch.setattr("tinyflow.trainer.mlflow.log_metrics", lambda *args, **kwargs: None)
+
+    def run(checkpoint_after: int | None):
+        T.manual_seed(0)
+        np.random.seed(0)
+        trainer = make_trainer(ema_decay=0.9)
+        trainer.num_epochs = 4
+
+        def on_epoch_end(epoch_idx):
+            if epoch_idx == checkpoint_after:
+                trainer.save_weights(str(tmp_path / "ckpt.safetensors"))
+                with trainer.ema_weights():
+                    expected["ema"] = trainer.model.linear.weight.numpy().copy()
+                expected["raw"] = trainer.model.linear.weight.numpy().copy()
+
+        trainer.train(on_epoch_end=on_epoch_end)
+        return trainer.model.linear.weight.numpy()
+
+    expected = {}
+    with_checkpoint = run(checkpoint_after=1)
+    without_checkpoint = run(checkpoint_after=None)
+
+    assert np.allclose(with_checkpoint, without_checkpoint)
+    ema = safe_load(str(tmp_path / "ckpt.safetensors"))["linear.weight"].numpy()
+    raw = safe_load(str(tmp_path / "ckpt_raw.safetensors"))["linear.weight"].numpy()
+    assert np.allclose(ema, expected["ema"])
+    assert np.allclose(raw, expected["raw"])
+    assert not np.allclose(ema, raw)

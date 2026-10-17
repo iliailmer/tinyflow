@@ -10,3 +10,4 @@ training:
   num_plots: 10
   log_artifacts: true
   ema_decay: null
+  checkpoint_every: null
