@@ -53,10 +53,23 @@ def visualize_moons(x, solver, time_grid, num_plots=10, save_path="outputs/moons
     return _save_snapshot_row(snapshots, draw, save_path)
 
 
-def visualize_mnist(x, solver, time_grid, num_plots=10, save_path="outputs/mnist_generation.png"):
+def to_display(x_np: np.ndarray, value_range: tuple[float, float]) -> np.ndarray:
+    """Map images from the training value range to [0, 1] and clip. No rescaling by content."""
+    low, high = value_range
+    return np.clip((x_np - low) / (high - low), 0, 1)
+
+
+def visualize_mnist(
+    x,
+    solver,
+    time_grid,
+    num_plots=10,
+    save_path="outputs/mnist_generation.png",
+    value_range=(0.0, 1.0),
+):
     def draw(ax, x_np):
-        img = x_np[0].reshape((28, 28))
-        ax.imshow((img - img.min()) / (img.max() - img.min() + 1e-8), cmap="gray")
+        img = to_display(x_np[0].reshape((28, 28)), value_range)
+        ax.imshow(img, cmap="gray", vmin=0, vmax=1)
         ax.axis("off")
 
     snapshots = solve_with_snapshots(x, solver, time_grid, num_plots)
@@ -64,13 +77,17 @@ def visualize_mnist(x, solver, time_grid, num_plots=10, save_path="outputs/mnist
 
 
 def visualize_cifar10(
-    x, solver, time_grid, num_plots=10, save_path="outputs/cifar10_generation.png"
+    x,
+    solver,
+    time_grid,
+    num_plots=10,
+    save_path="outputs/cifar10_generation.png",
+    value_range=(0.0, 1.0),
 ):
     """Plot the first sample of x of shape (batch_size, 3, 32, 32) at intermediate times."""
 
     def draw(ax, x_np):
-        img = x_np[0].transpose(1, 2, 0)
-        ax.imshow(np.clip((img - img.min()) / (img.max() - img.min() + 1e-8), 0, 1))
+        ax.imshow(to_display(x_np[0].transpose(1, 2, 0), value_range))
         ax.axis("off")
 
     snapshots = solve_with_snapshots(x, solver, time_grid, num_plots)

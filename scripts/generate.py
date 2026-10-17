@@ -41,9 +41,7 @@ from tqdm import tqdm
 
 from tinyflow.solver import uniform_time_grid
 from tinyflow.trainer import BaseTrainer
-from tinyflow.utils import (
-    solve_with_snapshots,
-)
+from tinyflow.utils import solve_with_snapshots, to_display
 
 plt.style.use("ggplot")
 
@@ -71,12 +69,6 @@ def get_dataset_config(cfg: DictConfig):
         }
     else:
         raise ValueError(f"Unknown dataset type: {dataset_type}")
-
-
-def to_display(x_np: np.ndarray, value_range: tuple[float, float]) -> np.ndarray:
-    """Map images from the training value range to [0, 1] and clip. No rescaling by content."""
-    low, high = value_range
-    return np.clip((x_np - low) / (high - low), 0, 1)
 
 
 def generate_image_grid(cfg: DictConfig, model, solver, dataset_config):
