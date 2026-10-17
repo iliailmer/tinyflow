@@ -9,4 +9,4 @@ dataset:
   flatten: false  # CIFAR-10 needs spatial structure (3, 32, 32)
   normalize: true  # Normalize to [0, 1]
   train: true  # Use training set
-  value_range: [0.0, 1.0]  # range of the image values; [-1.0, 1.0] centres them on the noise mean
+  value_range: [-1.0, 1.0]  # range of the image values; FID 63 vs 72 with [0, 1] (unet, 50 epochs)
