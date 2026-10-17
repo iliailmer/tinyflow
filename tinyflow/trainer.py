@@ -229,6 +229,7 @@ class BaseTrainer:
                 time_grid=uniform_time_grid(round(1 / cfg.training.step_size)),
                 num_plots=cfg.training.get("num_plots", 10),
                 save_path=os.path.join(cfg.get("output_dir", "outputs"), self.output_name),
+                value_range=tuple(cfg.dataset.get("value_range", [0.0, 1.0])),
             )
             mlflow.log_artifact(image_path, "generated_images")
 
