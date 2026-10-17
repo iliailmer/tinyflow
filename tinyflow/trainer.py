@@ -80,13 +80,21 @@ class BaseTrainer:
         safe_save(get_state_dict(self.model), output_path)
         print(f"✓ Model saved to: {output_path}")
 
+    def save_weights(self, output_path: str):
+        """Save the model. With EMA on, save the EMA weights there and the raw ones as <name>_raw."""
+        if self._ema:
+            self.save_model(output_path.replace(".safetensors", "_raw.safetensors"))
+        with self.ema_weights():
+            self.save_model(output_path)
+
     @staticmethod
     def load_model(
         model: BaseNeuralNetwork, model_path: str = "model.safetensors", strict: bool = True
     ):
         return load_state_dict(model, safe_load(model_path), strict=strict)
 
-    def train(self) -> BaseNeuralNetwork:
+    def train(self, on_epoch_end: Callable[[int], None] | None = None) -> BaseNeuralNetwork:
+        """Train for num_epochs. on_epoch_end(epoch_idx) is called after each epoch."""
         pbar = tqdm(range(self.num_epochs))
         with Context(TRAINING=1):
             for epoch_idx in pbar:
@@ -101,6 +109,9 @@ class BaseTrainer:
                 # Log metrics with step for proper line chart visualization
                 mlflow.log_metrics(metrics, step=epoch_idx)
                 pbar.set_description(f"Loss: {mean_loss:.4f}")
+
+                if on_epoch_end is not None:
+                    on_epoch_end(epoch_idx)
 
         return self.model
 
