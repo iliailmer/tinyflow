@@ -11,3 +11,4 @@ training:
   log_artifacts: true
   gradient_accumulation_steps: 4
   ema_decay: null
+  checkpoint_every: null

@@ -10,3 +10,4 @@ training:
   num_plots: 10
   gradient_accumulation_steps: 1
   ema_decay: null
+  checkpoint_every: null

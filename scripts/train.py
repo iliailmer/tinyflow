@@ -246,19 +246,21 @@ def train_images(cfg: DictConfig, model_name: str):
     time_sampler = create_time_sampler(cfg)
     trainer = create_trainer(cfg, model, time_sampler, dataloader, optim, path, lr_scheduler)
 
-    model = trainer.train()
-    save_model = cfg.training.get("save_model", True)
-    if save_model and trainer.ema_decay:
-        trainer.save_model(model_name.replace(".safetensors", "_raw.safetensors"))
+    checkpoint_every = cfg.training.get("checkpoint_every")
+
+    def save_checkpoint(epoch_idx: int):
+        epoch = epoch_idx + 1
+        if checkpoint_every and epoch % checkpoint_every == 0:
+            trainer.save_weights(model_name.replace(".safetensors", f"_ep{epoch:03d}.safetensors"))
+
+    model = trainer.train(on_epoch_end=save_checkpoint)
+    if cfg.training.get("save_model", True):
+        trainer.save_weights(model_name)
 
     if cfg.training.get("log_artifacts", True):
         trainer.plot_loss(cfg.get("output_dir", "outputs"))
 
-    # With EMA on, the saved model and the samples use the averaged weights
     with trainer.ema_weights():
-        if save_model:
-            trainer.save_model(model_name)
-
         if cfg.training.get("generate_samples", True):
             solver = create_solver(cfg, model)
             trainer.predict(cfg, solver)
