@@ -48,6 +48,11 @@ def sample(args):
     BaseTrainer.load_model(model, args.weights)
     solver = create_solver(cfg, model)
     channels, size = IMAGE_SHAPES[args.dataset]
+    value_range = args.value_range or OmegaConf.load(
+        f"configs/dataset/{args.dataset}.yaml"
+    ).dataset.get("value_range", [0.0, 1.0])
+    value_range = (float(value_range[0]), float(value_range[1]))
+    args.value_range = list(value_range)
 
     T.manual_seed(args.seed)
     batches = []
@@ -55,7 +60,7 @@ def sample(args):
         for start in range(0, args.n, args.batch_size):
             n = min(args.batch_size, args.n - start)
             x = solver.solve(T.randn(n, channels, size, size), uniform_time_grid(args.steps))
-            images = to_display(x.numpy(), tuple(args.value_range))
+            images = to_display(x.numpy(), value_range)
             batches.append((images * 255).round().astype(np.uint8))
             print(f"{start + n}/{args.n}", flush=True)
 
@@ -146,7 +151,13 @@ def main():
     s.add_argument("--weights", required=True)
     s.add_argument("--dataset", default="cifar10", choices=["cifar10", "mnist"])
     s.add_argument("--model-config", default="unet", help="configs/model/<name>.yaml")
-    s.add_argument("--value-range", type=float, nargs=2, default=[0.0, 1.0])
+    s.add_argument(
+        "--value-range",
+        type=float,
+        nargs=2,
+        default=None,
+        help="value range of the training images; default from configs/dataset/<dataset>.yaml",
+    )
     s.add_argument("--solver", default="heun", choices=["euler", "heun", "midpoint", "rk4"])
     s.add_argument("--steps", type=int, default=50)
     s.add_argument("--n", type=int, default=10_000)
