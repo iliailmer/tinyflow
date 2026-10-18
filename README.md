@@ -90,6 +90,23 @@ uv run scripts/generate.py generation.model_path=<path> generation.grid_size=3 g
 
 Outputs are saved in `outputs/generated/`.
 
+### Measuring Quality (FID and KID)
+
+FID and KID use Inception-v3 features in the clean-fid `legacy_tensorflow` mode, the setting of most published CIFAR-10 numbers. Sampling runs in tinygrad, the features in PyTorch (the `eval` dependency group), in separate processes:
+
+```bash
+# 1. Samples from a checkpoint (Heun, 50 steps by default)
+uv run scripts/fid.py sample --weights weights/<model>.safetensors --n 10000 --out outputs/fid/<name>.npz
+
+# 2. FID and KID against the CIFAR-10 training set
+uv run --group eval scripts/fid.py score outputs/fid/<name>.npz
+
+# Check of the setup: real test set against the training set (FID about 3.15)
+uv run --group eval scripts/fid.py score --real-test
+```
+
+Pass `--value-range -1 1` to `sample` for models trained with `dataset.value_range=[-1,1]`. Compare runs at the same number of samples: FID with 10k samples is higher than with the 50k used in papers. KID is unbiased at small sample sizes.
+
 ## Configuration with Hydra
 
 ```bash
@@ -212,10 +229,12 @@ uv run pre-commit install
 
 ## Planned Work
 
-- Exponential Moving Average (EMA) of the weights
-- Stronger time conditioning in the UNets
-- Class-conditional generation
-- Pre-trained models
+The goal is good image quality with few resources: UNets of at most 35M parameters on MNIST and CIFAR-10, trained on one laptop.
+
+- Faster training steps (kernel search, half precision, custom kernels)
+- Training recipe for long runs, and resume from a checkpoint
+- Minibatch optimal-transport pairing
+- Few-step sampling
 
 ## Contributing
 
