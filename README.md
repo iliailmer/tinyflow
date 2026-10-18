@@ -105,7 +105,7 @@ uv run --group eval scripts/fid.py score outputs/fid/<name>.npz
 uv run --group eval scripts/fid.py score --real-test
 ```
 
-Pass `--value-range -1 1` to `sample` for models trained with `dataset.value_range=[-1,1]`. Compare runs at the same number of samples: FID with 10k samples is higher than with the 50k used in papers. KID is unbiased at small sample sizes.
+`sample` takes the value range from `configs/dataset/<dataset>.yaml` (CIFAR-10: [-1, 1]); pass `--value-range 0 1` for checkpoints trained with another range. Compare runs at the same number of samples: FID with 10k samples is higher than with the 50k used in papers. KID is unbiased at small sample sizes.
 
 ## Configuration with Hydra
 
