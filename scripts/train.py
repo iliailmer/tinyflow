@@ -108,6 +108,7 @@ def create_dataloader(cfg: DictConfig):
             train=train,
             normalize=normalize,
             value_range=value_range,
+            hflip=cfg.dataset.get("hflip", False),
         )
     else:
         raise ValueError(f"Unknown dataset type: {dataset_type}")
@@ -141,6 +142,7 @@ def create_trainer(
         time_sampler=time_sampler,
         gradient_accumulation_steps=gradient_accumulation_steps,
         ema_decay=cfg.training.get("ema_decay"),
+        grad_clip=cfg.training.get("grad_clip"),
     )
 
 
