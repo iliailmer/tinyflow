@@ -38,6 +38,8 @@ class BaseDataloader:
 
     images must be in [0, 1]. value_range=(low, high) maps them linearly to
     [low, high]; (-1, 1) centres the data on the mean of the noise.
+
+    With hflip=True each image of a batch is mirrored left-right with probability 1/2.
     """
 
     def __init__(
@@ -48,6 +50,7 @@ class BaseDataloader:
         shuffle: bool = True,
         drop_last: bool = True,
         value_range: tuple[float, float] = (0.0, 1.0),
+        hflip: bool = False,
     ) -> None:
         if len(images) != len(labels):
             raise ValueError(f"Got {len(images)} images and {len(labels)} labels")
@@ -59,6 +62,7 @@ class BaseDataloader:
         self.batch_size = batch_size
         self.shuffle = shuffle
         self.drop_last = drop_last
+        self.hflip = hflip
         self.index = 0
         self._order = np.arange(len(images))
 
@@ -77,7 +81,11 @@ class BaseDataloader:
             raise StopIteration
         batch = self._order[self.index : self.index + self.batch_size]
         self.index += self.batch_size
-        return self.images[batch], self.labels[batch]
+        images = self.images[batch]
+        if self.hflip:
+            flip = np.random.rand(len(images)) < 0.5
+            images = np.where(flip[:, None, None, None], images[..., ::-1], images)
+        return images, self.labels[batch]
 
 
 class MNISTLoader(BaseDataloader):
@@ -158,6 +166,7 @@ class CIFAR10Loader(BaseDataloader):
         normalize: bool = True,
         drop_last: bool = True,
         value_range: tuple[float, float] = (0.0, 1.0),
+        hflip: bool = False,
     ):
         from tinyflow.utils import unpickle
 
@@ -178,4 +187,6 @@ class CIFAR10Loader(BaseDataloader):
             images = images / 255.0
         elif tuple(value_range) != (0.0, 1.0):
             raise ValueError("value_range needs normalize=True")
-        super().__init__(images, np.array(all_labels), batch_size, shuffle, drop_last, value_range)
+        super().__init__(
+            images, np.array(all_labels), batch_size, shuffle, drop_last, value_range, hflip
+        )

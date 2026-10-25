@@ -10,4 +10,5 @@ training:
   num_plots: 10
   log_artifacts: true
   ema_decay: null
+  grad_clip: null  # max global gradient norm; null = no clipping
   checkpoint_every: null
