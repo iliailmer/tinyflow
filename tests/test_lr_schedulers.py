@@ -65,6 +65,10 @@ def test_cosine_annealing_varies(optimizer):
     scheduler.step(100)
     assert scheduler.get_lr() == pytest.approx(0.01, abs=0.01)
 
+    # After t_max it stays at the minimum
+    scheduler.step(150)
+    assert scheduler.get_lr() == pytest.approx(0.01)
+
 
 def test_cosine_warm_restarts(optimizer):
     """Test that warm restarts reset the cosine cycle."""

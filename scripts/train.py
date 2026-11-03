@@ -164,7 +164,7 @@ def train_moons(cfg: DictConfig, model_name: str):
     path = AffinePath(scheduler=scheduler)
 
     optim = Adam(get_parameters(model), lr=cfg.optimizer.lr)
-    lr_scheduler = create_lr_scheduler(cfg, optim)
+    lr_scheduler = create_lr_scheduler(cfg, optim, cfg.training.num_epochs)
 
     time_sampler = create_time_sampler(cfg)
     loss_fn = mse
@@ -242,9 +242,11 @@ def train_images(cfg: DictConfig, model_name: str):
     path = AffinePath(scheduler=scheduler)
 
     optim = Adam(get_parameters(model), lr=cfg.optimizer.lr)
-    lr_scheduler = create_lr_scheduler(cfg, optim)
-
     dataloader = create_dataloader(cfg)
+    accumulation = cfg.training.get("gradient_accumulation_steps", 1)
+    total_steps = cfg.training.num_epochs * len(dataloader) // accumulation
+    lr_scheduler = create_lr_scheduler(cfg, optim, total_steps)
+
     time_sampler = create_time_sampler(cfg)
     trainer = create_trainer(cfg, model, time_sampler, dataloader, optim, path, lr_scheduler)
 
