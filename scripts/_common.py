@@ -99,8 +99,23 @@ def create_scheduler(cfg: DictConfig):
     raise ValueError(f"Unknown scheduler type: {scheduler_type}")
 
 
-def create_lr_scheduler(cfg: DictConfig, optimizer):
-    """Create learning rate scheduler from config."""
+def _cosine_scheduler(sched_cfg: DictConfig, optimizer, steps: int | None) -> CosineAnnealingLR:
+    """t_max: null makes the cosine last `steps` optimizer steps."""
+    t_max = sched_cfg.get("t_max", 5000)
+    if t_max is None:
+        if steps is None:
+            raise ValueError("lr_scheduler t_max: null needs the number of training steps")
+        t_max = steps
+    return CosineAnnealingLR(
+        optimizer,
+        t_max=t_max,
+        eta_min=sched_cfg.get("eta_min", 0.0),
+        warm=sched_cfg.get("warm", False),
+    )
+
+
+def create_lr_scheduler(cfg: DictConfig, optimizer, total_steps: int | None = None):
+    """Create learning rate scheduler from config. total_steps is the number of optimizer steps."""
     if not cfg.get("lr_scheduler"):
         return None
 
@@ -116,15 +131,11 @@ def create_lr_scheduler(cfg: DictConfig, optimizer):
             gamma=cfg.lr_scheduler.get("gamma", 0.1),
         )
     elif scheduler_type == "CosineAnnealingLR":
-        base_scheduler = CosineAnnealingLR(
-            optimizer,
-            t_max=cfg.lr_scheduler.get("t_max", 5000),
-            eta_min=cfg.lr_scheduler.get("eta_min", 0.0),
-            warm=cfg.lr_scheduler.get("warm", False),
-        )
+        base_scheduler = _cosine_scheduler(cfg.lr_scheduler, optimizer, total_steps)
     elif scheduler_type == "WarmupScheduler":
         # Create nested base scheduler
         base_cfg = cfg.lr_scheduler.base_scheduler
+        warmup_steps = cfg.lr_scheduler.get("warmup_steps", 500)
         if base_cfg.type == "StepLRScheduler":
             nested_scheduler = StepLRScheduler(
                 optimizer,
@@ -132,12 +143,8 @@ def create_lr_scheduler(cfg: DictConfig, optimizer):
                 gamma=base_cfg.get("gamma", 0.1),
             )
         elif base_cfg.type == "CosineAnnealingLR":
-            nested_scheduler = CosineAnnealingLR(
-                optimizer,
-                t_max=base_cfg.get("t_max", 5000),
-                eta_min=base_cfg.get("eta_min", 0.0),
-                warm=base_cfg.get("warm", False),
-            )
+            steps_after_warmup = None if total_steps is None else total_steps - warmup_steps
+            nested_scheduler = _cosine_scheduler(base_cfg, optimizer, steps_after_warmup)
         elif base_cfg.type == "NullLRScheduler":
             nested_scheduler = NullLRScheduler(optimizer)
         else:
@@ -146,7 +153,7 @@ def create_lr_scheduler(cfg: DictConfig, optimizer):
         return WarmupScheduler(
             optimizer,
             base_scheduler=nested_scheduler,
-            warmup_steps=cfg.lr_scheduler.get("warmup_steps", 500),
+            warmup_steps=warmup_steps,
             warmup_start_lr=cfg.lr_scheduler.get("warmup_start_lr", 0.0),
         )
     else:

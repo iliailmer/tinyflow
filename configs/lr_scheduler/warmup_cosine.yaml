@@ -1,0 +1,12 @@
+# @package _global_
+# Linear warm-up, then cosine decay to 0 at the last step of the run
+
+lr_scheduler:
+  type: "WarmupScheduler"
+  warmup_steps: 1000
+  warmup_start_lr: 0.0
+  base_scheduler:
+    type: "CosineAnnealingLR"
+    t_max: null
+    eta_min: 0.0
+    warm: false

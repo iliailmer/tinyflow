@@ -61,10 +61,8 @@ class CosineAnnealingLR(BaseLRScheduler):
         self.t_mult = t_mult
 
     def step(self, iter: int):
-        if self.warm:
-            effective_iter = iter % self.t_max
-        else:
-            effective_iter = iter
+        # Without warm restarts the rate stays at eta_min after t_max
+        effective_iter = iter % self.t_max if self.warm else min(iter, self.t_max)
 
         new_lr = (
             self.eta_min
