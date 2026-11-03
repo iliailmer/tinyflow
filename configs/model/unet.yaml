@@ -7,3 +7,4 @@ model:
   blocks_per_level: 1
   attention_resolutions: []
   time_embed_dim: 64
+  dropout: 0.0  # in every conv block, training only

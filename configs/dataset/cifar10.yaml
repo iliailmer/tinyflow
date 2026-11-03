@@ -10,3 +10,4 @@ dataset:
   normalize: true  # Normalize to [0, 1]
   train: true  # Use training set
   value_range: [-1.0, 1.0]  # range of the image values; FID 63 vs 72 with [0, 1] (unet, 50 epochs)
+  hflip: false  # mirror each training image left-right with probability 1/2

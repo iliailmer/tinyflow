@@ -94,6 +94,7 @@ class UNet(BaseNeuralNetwork):
         num_heads: Attention heads
         time_embed_dim: Dimension of the sinusoidal time embedding. An MLP maps it to a
             time vector of 4 times this size, which is added in every conv block.
+        dropout: Dropout probability in every conv block, in training only
     """
 
     def __init__(
@@ -106,6 +107,7 @@ class UNet(BaseNeuralNetwork):
         attention_resolutions: Sequence[int] = (),
         num_heads: int = 4,
         time_embed_dim: int = 64,
+        dropout: float = 0.0,
     ):
         super().__init__()
         *level_channels, bottleneck_channels = channels
@@ -114,10 +116,10 @@ class UNet(BaseNeuralNetwork):
         self.time_embed = SinusoidalTimeEmbedding(time_embed_dim)
         self.time_mlp = [nn.Linear(time_embed_dim, time_dim), nn.Linear(time_dim, time_dim)]
 
+        block_args = {"time_dim": time_dim, "dropout": dropout}
+
         def blocks(c_in: int, c_out: int, count: int) -> list:
-            return [
-                ConvBlock(c_in if i == 0 else c_out, c_out, time_dim=time_dim) for i in range(count)
-            ]
+            return [ConvBlock(c_in if i == 0 else c_out, c_out, **block_args) for i in range(count)]
 
         def attention(c: int, size: int) -> list:
             return [SelfAttention(c, num_heads=num_heads)] if size in attention_resolutions else []
@@ -138,7 +140,7 @@ class UNet(BaseNeuralNetwork):
             if level == 0:
                 level_blocks = [
                     ConvTransposeBlock(
-                        c_prev + c, c, stride=1, padding=1, output_padding=0, time_dim=time_dim
+                        c_prev + c, c, stride=1, padding=1, output_padding=0, **block_args
                     )
                 ]
                 level_blocks += blocks(c, c, blocks_per_level - 1)
@@ -146,9 +148,7 @@ class UNet(BaseNeuralNetwork):
                 out_size = sizes[level - 1]
                 output_padding = out_size - (2 * sizes[level] - 1)
                 level_blocks = [
-                    ConvTransposeBlock(
-                        c_prev + c, c, output_padding=output_padding, time_dim=time_dim
-                    )
+                    ConvTransposeBlock(c_prev + c, c, output_padding=output_padding, **block_args)
                 ]
                 level_blocks += blocks(c, c, blocks_per_level - 1) + attention(c, out_size)
             self.decoder.append(level_blocks)

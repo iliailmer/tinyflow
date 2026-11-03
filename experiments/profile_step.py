@@ -51,6 +51,7 @@ def make_trainer(args):
         blocks_per_level=m.blocks_per_level,
         attention_resolutions=list(m.attention_resolutions),
         time_embed_dim=m.time_embed_dim,
+        dropout=m.get("dropout", 0.0),
     )
     trainer = BaseTrainer(
         model=model,
@@ -59,6 +60,7 @@ def make_trainer(args):
         loss_fn=mse,
         path=AffinePath(LinearScheduler()),
         time_sampler=UniformTimeSampler(),
+        grad_clip=args.grad_clip,
     )
     n_params = sum(p.numel() for p in get_parameters(model))
     return trainer, (args.batch_size, channels, size, size), n_params
@@ -190,6 +192,7 @@ def main():
     parser.add_argument("--steps", type=int, default=30)
     parser.add_argument("--top", type=int, default=15)
     parser.add_argument("--layers", action="store_true", help="also time each UNet block")
+    parser.add_argument("--grad-clip", type=float, default=None)
     parser.add_argument(
         "--set", nargs="*", default=[], help="model config overrides, e.g. attention_resolutions=[]"
     )

@@ -8,11 +8,11 @@ from tinygrad.tensor import Tensor as T
 
 from tinyflow.losses import mse
 from tinyflow.nn import BaseNeuralNetwork
-from tinyflow.nn_utils.lr_scheduler import StepLRScheduler
+from tinyflow.nn_utils.lr_scheduler import NullLRScheduler, StepLRScheduler, WarmupScheduler
 from tinyflow.path import AffinePath
 from tinyflow.path.scheduler import LinearScheduler
 from tinyflow.time_sampler import UniformTimeSampler
-from tinyflow.trainer import BaseTrainer
+from tinyflow.trainer import BaseTrainer, clip_grad_norm
 
 
 class TinyModel(BaseNeuralNetwork):
@@ -129,3 +129,39 @@ def test_checkpoint_during_training_saves_both_weights_and_changes_nothing(tmp_p
     assert np.allclose(ema, expected["ema"])
     assert np.allclose(raw, expected["raw"])
     assert not np.allclose(ema, raw)
+
+
+def test_clip_grad_norm_scales_only_large_gradients():
+    a, b = T.zeros(2), T.zeros(1)
+    a.grad, b.grad = T([3.0, 0.0]), T([4.0])
+
+    assert clip_grad_norm([a, b], max_norm=10.0).item() == pytest.approx(5.0)
+    assert np.allclose(a.grad.numpy(), [3.0, 0.0])
+
+    clip_grad_norm([a, b], max_norm=1.0)
+    assert np.allclose(np.concatenate([a.grad.numpy(), b.grad.numpy()]), [0.6, 0.0, 0.8], atol=1e-5)
+
+
+def test_warmup_starts_at_the_first_step():
+    """The first update must use the warm-up start rate, not the base rate."""
+    model = TinyModel()
+    optim = Adam(get_parameters(model), lr=0.01)
+    warmup = WarmupScheduler(optim, NullLRScheduler(optim), warmup_steps=4, warmup_start_lr=0.0)
+    trainer = BaseTrainer(
+        model=model,
+        dataloader=Batches(),
+        optim=optim,
+        loss_fn=mse,
+        path=AffinePath(LinearScheduler()),
+        time_sampler=UniformTimeSampler(),
+        lr_scheduler=warmup,
+    )
+    assert optim.lr.item() == pytest.approx(0.0)
+
+    with Context(TRAINING=1):
+        trainer.epoch(0)  # 3 steps
+    assert optim.lr.item() == pytest.approx(0.01 * 3 / 4)
+
+    with Context(TRAINING=1):
+        trainer.epoch(1)
+    assert optim.lr.item() == pytest.approx(0.01)

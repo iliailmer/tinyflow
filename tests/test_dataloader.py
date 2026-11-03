@@ -26,6 +26,16 @@ class TestBaseDataloader:
         assert len(loader) == len(batches) == 3
         assert batches[-1][0].shape == (2, 1)
 
+    def test_hflip_mirrors_about_half_of_the_images(self):
+        images = np.random.rand(64, 3, 4, 4)
+        loader = BaseDataloader(images, np.arange(64), batch_size=64, shuffle=False, hflip=True)
+        batch, labels = next(iter(loader))
+        flipped = np.all(batch == images[..., ::-1], axis=(1, 2, 3))
+        kept = np.all(batch == images, axis=(1, 2, 3))
+        assert np.all(flipped | kept)
+        assert 10 < flipped.sum() < 54
+        assert np.array_equal(labels, np.arange(64))
+
     def test_exact_multiple(self):
         assert len(make_loader(n=8, batch_size=4, drop_last=False)) == 2
         assert len(make_loader(n=8, batch_size=4, drop_last=True)) == 2

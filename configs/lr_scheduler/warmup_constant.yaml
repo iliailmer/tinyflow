@@ -1,0 +1,9 @@
+# @package _global_
+# Linear warm-up from 0 to optimizer.lr, then constant
+
+lr_scheduler:
+  type: "WarmupScheduler"
+  warmup_steps: 1000
+  warmup_start_lr: 0.0
+  base_scheduler:
+    type: "NullLRScheduler"

@@ -20,6 +20,20 @@ from tinyflow.time_sampler import BaseTimeSampler
 from tinyflow.utils import visualize_cifar10, visualize_mnist
 
 
+def clip_grad_norm(params: list[T], max_norm: float) -> T:
+    """Scale the gradients so that their global L2 norm is at most max_norm. Returns the norm."""
+    grads = [p.grad for p in params if p.grad is not None]
+    # Realize the gradients, then the scale. Without the first, the norm kernel recomputes the
+    # backward pass; without the second, every parameter update recomputes the norm.
+    T.realize(*grads)
+    norm = T.stack(*[g.square().sum() for g in grads]).sum().sqrt()
+    scale = (max_norm / (norm + 1e-6)).minimum(1.0).realize()
+    for p in params:
+        if p.grad is not None:
+            p.grad = p.grad * scale
+    return norm
+
+
 class BaseTrainer:
     """Training loop with MLflow logging. Subclasses set the three class attributes."""
 
@@ -40,6 +54,7 @@ class BaseTrainer:
         time_sampler: BaseTimeSampler | None = None,
         gradient_accumulation_steps: int = 1,
         ema_decay: float | None = None,
+        grad_clip: float | None = None,
     ):
         self.model = model
         self.dataloader = dataloader
@@ -54,6 +69,7 @@ class BaseTrainer:
             raise ValueError("Time sampler cannot be None")
         self.time_sampler = time_sampler
         self.gradient_accumulation_steps = gradient_accumulation_steps
+        self.grad_clip = grad_clip
         self._losses = []
         self.global_step = 0
         self.accumulation_step = 0
@@ -63,6 +79,11 @@ class BaseTrainer:
         # Lazy random init gives different values when it is realized later, after other
         # random draws. Realize it here so that the initial weights do not depend on options.
         T.realize(*optim.params)
+
+        # The scheduler sets the learning rate of the step about to run, starting with step 0
+        if lr_scheduler is not None:
+            lr_scheduler.step(0)
+            optim.lr.realize()
 
         self.ema_decay = ema_decay or 0.0
         self._ema_steps = 0
@@ -134,6 +155,8 @@ class BaseTrainer:
         x_t, dx_t = self.path.sample(x_1=x, t=t, x_0=x_0)
         self.optim.zero_grad()
         loss = self.loss_fn(self.model(x_t, t), dx_t).backward()
+        if self.grad_clip:
+            clip_grad_norm(self.optim.params, self.grad_clip)
         # Realize the loss with the update. A loss.item() before optim.step() runs the
         # forward pass twice, and a loss.item() after it hangs the Metal GPU.
         return loss.realize(*self.optim.schedule_step())
@@ -150,6 +173,8 @@ class BaseTrainer:
         self.accumulation_step += 1
         if self.accumulation_step >= self.gradient_accumulation_steps:
             self.accumulation_step = 0
+            if self.grad_clip:
+                clip_grad_norm(self.optim.params, self.grad_clip)
             loss.realize(*self.optim.schedule_step())
         else:
             loss.realize(*[p.grad for p in self.optim.params if p.grad is not None])
@@ -210,9 +235,9 @@ class BaseTrainer:
                 self._update_ema()
 
             if self.accumulation_step == 0 and self.lr_scheduler is not None:
+                self.global_step += 1
                 self.lr_scheduler.step(self.global_step)
                 self.optim.lr.realize()
-                self.global_step += 1
 
         mean_loss_per_epoch = mean_loss_per_epoch / len(self.dataloader)
         if epoch_idx is not None:

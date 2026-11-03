@@ -7,6 +7,7 @@ from tinygrad.tensor import Tensor as T
 from tinyflow.nn import NeuralNetwork, UNet
 from tinyflow.nn_utils.lr_scheduler import (
     CosineAnnealingLR,
+    NullLRScheduler,
     StepLRScheduler,
     WarmupScheduler,
 )
@@ -49,6 +50,7 @@ def create_model(cfg: DictConfig):
             blocks_per_level=cfg.model.blocks_per_level,
             attention_resolutions=list(cfg.model.attention_resolutions),
             time_embed_dim=cfg.model.time_embed_dim,
+            dropout=cfg.model.get("dropout", 0.0),
         )
 
     raise ValueError(f"Unknown model type: {model_type} with dataset type: {dataset_type}")
@@ -136,6 +138,8 @@ def create_lr_scheduler(cfg: DictConfig, optimizer):
                 eta_min=base_cfg.get("eta_min", 0.0),
                 warm=base_cfg.get("warm", False),
             )
+        elif base_cfg.type == "NullLRScheduler":
+            nested_scheduler = NullLRScheduler(optimizer)
         else:
             raise ValueError(f"Unknown base scheduler type: {base_cfg.type}")
 
