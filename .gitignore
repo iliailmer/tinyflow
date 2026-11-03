@@ -16,6 +16,8 @@ outputs
 *.md
 *.db
 !README.md
+!CLAUDE.md
+!AGENTS.md
 
 weights/
 .tasklist
